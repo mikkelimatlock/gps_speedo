@@ -12,8 +12,10 @@
       "Bash(git push:*)",
       "Bash(cp:*)",
       "Bash(flutter:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "defaultMode": "acceptEdits"
-  }
+  },
+  "outputStyle": "Explanatory"
 }
