@@ -1,6 +1,6 @@
 # GPS Speedometer
 
-A customizable Flutter speedometer app using GPS location services to display real-time speed.
+A customizable Flutter speedometer app using GPS location services to display real-time speed.  
 **Created with the help of Claude Code**
 
 ## Features
