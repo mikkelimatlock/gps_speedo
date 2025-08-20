@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../widgets/digital_speedometer.dart';
 import '../widgets/analog_speedometer.dart';
 import '../widgets/info_panel.dart';
+import '../widgets/speed_unit_selector.dart';
 import 'settings_screen.dart';
 
 class SpeedometerScreen extends StatefulWidget {
@@ -62,7 +63,17 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
             children: [
               Expanded(
                 flex: 3,
-                child: _buildSpeedometer(locationProvider, settingsProvider),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: _buildSpeedometer(locationProvider, settingsProvider),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                      child: const SpeedUnitSelector(),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 flex: 1,
@@ -81,17 +92,23 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
   Widget _buildSpeedometer(LocationProvider locationProvider, SettingsProvider settingsProvider) {
     final speed = settingsProvider.convertSpeed(locationProvider.currentSpeed);
     
-    if (settingsProvider.speedometerStyle == SpeedometerStyle.digital) {
-      return DigitalSpeedometer(
-        speed: speed,
-        unit: settingsProvider.speedUnitString,
-      );
-    } else {
-      return AnalogSpeedometer(
-        speed: speed,
-        unit: settingsProvider.speedUnitString,
-      );
-    }
+    return GestureDetector(
+      onTap: () {
+        final newStyle = settingsProvider.speedometerStyle == SpeedometerStyle.digital
+            ? SpeedometerStyle.analog
+            : SpeedometerStyle.digital;
+        settingsProvider.setSpeedometerStyle(newStyle);
+      },
+      child: settingsProvider.speedometerStyle == SpeedometerStyle.digital
+          ? DigitalSpeedometer(
+              speed: speed,
+              unit: settingsProvider.speedUnitString,
+            )
+          : AnalogSpeedometer(
+              speed: speed,
+              unit: settingsProvider.speedUnitString,
+            ),
+    );
   }
 
   Widget _buildPermissionError(String message) {

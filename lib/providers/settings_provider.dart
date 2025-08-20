@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum SpeedUnit { kmh, mph }
+enum SpeedUnit { kmh, mph, knots }
 enum SpeedometerStyle { digital, analog }
 
 class SettingsProvider extends ChangeNotifier {
@@ -21,7 +21,16 @@ class SettingsProvider extends ChangeNotifier {
   bool get showTripTime => _showTripTime;
   bool get showAccuracy => _showAccuracy;
 
-  String get speedUnitString => _speedUnit == SpeedUnit.kmh ? 'km/h' : 'mph';
+  String get speedUnitString {
+    switch (_speedUnit) {
+      case SpeedUnit.kmh:
+        return 'km/h';
+      case SpeedUnit.mph:
+        return 'mph';
+      case SpeedUnit.knots:
+        return 'knots';
+    }
+  }
 
   SettingsProvider() {
     _loadSettings();
@@ -89,10 +98,13 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   double convertSpeed(double speedMps) {
-    if (_speedUnit == SpeedUnit.kmh) {
-      return speedMps * 3.6;
-    } else {
-      return speedMps * 2.237;
+    switch (_speedUnit) {
+      case SpeedUnit.kmh:
+        return speedMps * 3.6;
+      case SpeedUnit.mph:
+        return speedMps * 2.237;
+      case SpeedUnit.knots:
+        return speedMps * 1.944;
     }
   }
 }

@@ -128,6 +128,17 @@ class SettingsScreen extends StatelessWidget {
                 }
               },
             ),
+            RadioListTile<SpeedUnit>(
+              title: const Text('Knots'),
+              value: SpeedUnit.knots,
+              groupValue: settings.speedUnit,
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setSpeedUnit(value);
+                  Navigator.pop(context);
+                }
+              },
+            ),
           ],
         ),
         actions: [
@@ -183,4 +194,5 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
 }

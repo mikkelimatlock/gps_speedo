@@ -8,7 +8,11 @@
       "Bash(flutter pub:*)",
       "Bash(mkdir:*)",
       "Bash(flutter analyze:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(git push:*)",
+      "Bash(cp:*)",
+      "Bash(flutter:*)",
+      "Bash(powershell:*)"
     ],
     "defaultMode": "acceptEdits"
   }

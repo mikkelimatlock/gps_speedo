@@ -3,8 +3,8 @@
 ## Project Overview
 A customizable Flutter GPS speedometer app targeting Android devices, emphasizing modularity and user customization.
 
-## Current Status: v1.0 Complete 
-**Fully functional GPS speedometer with all core requirements implemented.**
+## Current Status: v1.1 Complete 
+**Enhanced GPS speedometer with improved user experience and customization options.**
 
 ### Architecture Implemented
 - **State Management:** Provider pattern
@@ -15,7 +15,7 @@ A customizable Flutter GPS speedometer app targeting Android devices, emphasizin
 
 ### Core Features Completed
 -  Real-time GPS speed tracking with accuracy monitoring
--  Customizable speed units (km/h ” mph) with persistent storage
+-  Customizable speed units (km/h ï¿½ mph) with persistent storage
 -  Dual display styles: Digital speedometer + Analog gauge
 -  Dark/Light theme support with system integration
 -  Optional metrics panel: coordinates, distance, trip time, accuracy
@@ -31,12 +31,22 @@ Architecture: Provider + Consumer pattern for reactive state management
 Permissions: Location services with graceful degradation
 ```
 
-## TODO - Future Improvements =
+## Recent Updates (v1.1)
+
+### âœ… Completed Features
+- [x] **Portrait/Landscape Support**: Automatic orientation detection implemented
+- [x] **Interactive Gauge**: Click gauge face to switch digital/analog modes
+- [x] **Extended Speed Units**: Added knots support with quick selector buttons
+
+## TODO - Future Improvements
+
+### Critical Issues
+- [ ] **Dependency Updates**: Update 10 packages to latest compatible versions
+- [ ] **Orientation Override**: Fix auto-rotate to work regardless of system toggle status
 
 ### UI/UX Enhancements
-- [ ] **Portrait/Landscape Support**: Automatic orientation detection (ignore system auto-rotate toggle)
+- [ ] **Background Customization**: Custom background color selection
 - [ ] **Interface Rearrangement**: User-defined layout customization
-- [ ] **Interactive Gauge**: Click gauge face to switch digital/analog modes
 - [ ] **Settings Menu Refurbishment**: More intuitive interactions and better UX
 
 ### Technical Improvements  

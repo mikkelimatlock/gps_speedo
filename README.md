@@ -9,11 +9,11 @@ A customizable Flutter speedometer app using GPS location services to display re
 - Real-time speed display using GPS
 - High-precision location tracking
 - Works offline (no internet connection required)
-- Portrait orientation for mobile phones
+- Automatic portrait/landscape orientation support
 
 ### Customizable Settings
-- **Speed Units**: mph, km/h (expandable for more units)
-- **Display Style**: Digital speedometer, analog gauge (expandable for more styles)
+- **Speed Units**: mph, km/h, knots (with convenient unit selector buttons)
+- **Display Style**: Digital speedometer, analog gauge (tap gauge to switch)
 - **Theme**: Light/Dark mode (expandable for custom themes)
 - **Metrics Display**: Toggle additional metrics on/off
   - Current location coordinates
@@ -23,10 +23,16 @@ A customizable Flutter speedometer app using GPS location services to display re
 
 ### Technical Specifications
 - Target Platform: Android (primary)
-- Screen Orientation: Portrait (locked)
-- Target Device: Mobile phones
+- Screen Orientation: Auto-rotate (portrait/landscape)
+- Target Device: Mobile phones and tablets
 - GPS Requirements: Location permissions required
 - Offline Capability: Full functionality without internet
+
+### New Features in v1.1
+- **Auto-rotate Support**: App now supports both portrait and landscape orientations
+- **Interactive Gauge**: Tap the speedometer to switch between digital and analog modes
+- **Extended Units**: Added knots as a speed unit option
+- **Unit Selector**: Quick access unit selection buttons next to the speedometer
 
 ## Architecture Design
 
