@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# User notes - contains oversights and current matters
+# DO NOT REMOVE FROM GITIGNORE
+NOTES.txt
+
+# Local TODO for next Claude Code sessions
+# DO NOT REMOVE FROM GITIGNORE
+TODO.md
+
+# Development tools - generic utilities, not project-specific
+.tools/

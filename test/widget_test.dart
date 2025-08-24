@@ -13,9 +13,9 @@ import 'package:gps_speedo/main.dart';
 void main() {
   testWidgets('GPS Speedometer app loads', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const SpeedometerApp());
+    await tester.pumpWidget(const GpsSpeedoApp());
 
     // Verify that the app loads with the title
-    expect(find.text('GPS Speedometer'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
   });
 }

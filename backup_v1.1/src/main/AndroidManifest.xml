@@ -5,9 +5,6 @@
     <!-- Optional: for background location access -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     
-    <!-- TODO: Enable for display-over-apps functionality -->
-    <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> -->
-    
     <application
         android:label="gps_speedo"
         android:name="${applicationName}"

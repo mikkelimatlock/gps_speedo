@@ -1,46 +1,28 @@
 # GPS Speedometer
 
-A customizable Flutter speedometer app using GPS location services to display real-time speed.  
+A GPS Speedometer aimed at Android on Motorcycle / Bicycle applications.
 **Created with the help of Claude Code**
 
 ## Features
 
 ### Core Functionality
 - Real-time speed display using GPS
-- High-precision location tracking
-- Works offline (no internet connection required)
-- Automatic portrait/landscape orientation support
+- Maybe also direction display using GPS
+- Good floating window / split screen support(hopefully)
 
 ### Customizable Settings
 - **Speed Units**: mph, km/h, knots (with convenient unit selector buttons)
-- **Display Style**: Digital speedometer, analog gauge (tap gauge to switch)
 - **Theme**: Light/Dark mode (expandable for custom themes)
-- **Metrics Display**: Toggle additional metrics on/off
-  - Current location coordinates
-  - Distance traveled
-  - Trip duration
-  - Current speed accuracy
 
 ### Technical Specifications
 - Target Platform: Android (primary)
-- Screen Orientation: Auto-rotate (portrait/landscape)
 - Target Device: Mobile phones and tablets
 - GPS Requirements: Location permissions required
 - Offline Capability: Full functionality without internet
 
-### New Features in v1.1
-- **Auto-rotate Support**: App now supports both portrait and landscape orientations
-- **Interactive Gauge**: Tap the speedometer to switch between digital and analog modes
-- **Extended Units**: Added knots as a speed unit option
-- **Unit Selector**: Quick access unit selection buttons next to the speedometer
-
 ## Architecture Design
 
-The app is designed with customization and extensibility in mind:
-- Settings system supports multiple options per category
-- Modular design allows easy addition of new speedometer styles
-- Theme system supports unlimited themes
-- Metrics system allows toggle individual data points
+*To be updated*
 
 ## Permissions Required
 - `ACCESS_FINE_LOCATION` - For high-precision GPS tracking
