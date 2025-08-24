@@ -10,7 +10,6 @@ class GpsService {
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 0,
-        timeLimit: Duration(seconds: 5),
       ),
     );
   }

@@ -43,7 +43,7 @@ class ColorThemes {
       name: 'Yuuparo Light',
       background: Color.fromARGB(255, 228, 235, 238),
       speedText: Color.fromARGB(255, 85, 99, 112),
-      headingText: Color.fromARGB(255, 255, 171, 16),
+      headingText: Color.fromARGB(255, 255, 157, 65),
       unitText: Color.fromARGB(255, 98, 124, 118),
     ),
   ];

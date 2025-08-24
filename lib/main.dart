@@ -92,7 +92,13 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
 
       _positionSubscription = GpsService.positionStream.listen(
         _onPositionUpdate,
-        onError: (error) => setState(() => _errorMessage = 'GPS error: $error'),
+        onError: (error) {
+          // Only show persistent GPS errors, not temporary signal issues
+          final errorString = error.toString().toLowerCase();
+          if (!errorString.contains('timeout') && !errorString.contains('temporarily')) {
+            setState(() => _errorMessage = 'GPS error: $error');
+          }
+        },
       );
     } catch (e) {
       setState(() => _errorMessage = 'Failed to initialize GPS');
@@ -120,10 +126,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
   }
   
   String _getSpeedDisplayText(double displaySpeed) {
-    if (_speed == 0.0 && _heading == -1.0) {
+    if (_speed < 1.0 && (_heading < 0.0 || _heading >= 360.0)) {
       return '--';
     }
-    return displaySpeed.toStringAsFixed(0);
+    return displaySpeed.toStringAsFixed(1);
   }
 
   @override
@@ -159,7 +165,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
           child: Container(
             width: double.infinity,
             color: Colors.transparent,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -185,7 +191,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                         child: Text(
                           speedText,
                           style: TextStyle(
-                            fontSize: 200,
+                            fontSize: 160,
                             fontWeight: FontWeight.w300,
                             color: currentTheme.speedText,
                             fontFamily: 'DIN1451Alt',
