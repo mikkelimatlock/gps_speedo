@@ -26,9 +26,9 @@ class ColorThemes {
       unitText: Color.fromARGB(255, 244, 201, 255),
     ),
     ColorTheme(
-      name: 'Yuubari',
+      name: 'Yuuparo',
       background: Color.fromARGB(255, 85, 99, 112),
-      speedText: Color.fromARGB(255, 255, 166, 0),
+      speedText: Color.fromARGB(255, 255, 171, 16),
       headingText: Color.fromARGB(255, 228, 235, 238),
       unitText: Color.fromARGB(255, 141, 196, 184),
     ),
@@ -38,6 +38,13 @@ class ColorThemes {
       speedText: Color.fromARGB(255, 114, 85, 109),
       headingText: Color.fromARGB(255, 140, 94, 151),
       unitText: Color.fromARGB(255, 114, 85, 109),
+    ),
+    ColorTheme(
+      name: 'Yuuparo Light',
+      background: Color.fromARGB(255, 228, 235, 238),
+      speedText: Color.fromARGB(255, 85, 99, 112),
+      headingText: Color.fromARGB(255, 255, 171, 16),
+      unitText: Color.fromARGB(255, 98, 124, 118),
     ),
   ];
 
