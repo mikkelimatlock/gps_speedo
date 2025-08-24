@@ -54,3 +54,7 @@ TODO.md
 
 # Development tools - generic utilities, not project-specific
 .tools/
+
+# Font(s) provided for embedding into the app
+# DO NOT REMOVE FROM GITIGNORE
+fonts/

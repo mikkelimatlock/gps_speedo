@@ -19,25 +19,25 @@ class ColorTheme {
 class ColorThemes {
   static const List<ColorTheme> themes = [
     ColorTheme(
-      name: 'Classic Dark',
-      background: Color(0xFF121212),
-      speedText: Color(0xFF4CAF50),
-      headingText: Color(0xFFFF9800),
-      unitText: Color(0xFF9E9E9E),
+      name: 'Yuzuki',
+      background: Color.fromARGB(255, 114, 85, 109),
+      speedText: Color.fromARGB(255, 246, 224, 255),
+      headingText: Color.fromARGB(255, 244, 201, 255),
+      unitText: Color.fromARGB(255, 244, 201, 255),
     ),
     ColorTheme(
-      name: 'Electric Blue',
-      background: Color(0xFF0D1421),
-      speedText: Color(0xFF00E5FF),
-      headingText: Color(0xFFFFEB3B),
-      unitText: Color(0xFF78909C),
+      name: 'Yuubari',
+      background: Color.fromARGB(255, 85, 99, 112),
+      speedText: Color.fromARGB(255, 255, 166, 0),
+      headingText: Color.fromARGB(255, 228, 235, 238),
+      unitText: Color.fromARGB(255, 141, 196, 184),
     ),
     ColorTheme(
-      name: 'Racing Red',
-      background: Color(0xFF1A0A0A),
-      speedText: Color(0xFFFF1744),
-      headingText: Color(0xFFFFFFFF),
-      unitText: Color(0xFFB0BEC5),
+      name: 'Yuzuki Light',
+      background: Color.fromARGB(255, 246, 224, 255),
+      speedText: Color.fromARGB(255, 114, 85, 109),
+      headingText: Color.fromARGB(255, 140, 94, 151),
+      unitText: Color.fromARGB(255, 114, 85, 109),
     ),
   ];
 

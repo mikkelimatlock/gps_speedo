@@ -31,6 +31,6 @@ class GpsService {
   
   static String formatHeading(double heading) {
     if (heading < 0) return 'N/A';
-    return '${getCompassDirection(heading)} ${heading.round()}°';
+    return '${heading.round()} ${getCompassDirection(heading)}';
   }
 }
