@@ -145,33 +145,33 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
   Widget _buildPortraitLayout(String speedText, ColorTheme currentTheme) {
     return Column(
       children: [
-        // Speed area - takes most space
+        // Speed area - takes most space, precise tap targets on text only
         Expanded(
           flex: 7,
-          child: GestureDetector(
-            onTap: _cycleUnit,
-            child: Container(
-              width: double.infinity,
-              color: Colors.transparent,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_errorMessage.isNotEmpty)
-                    Flexible(
-                      child: Text(
-                        _errorMessage,
-                        style: TextStyle(
-                          color: currentTheme.speedText,
-                          fontSize: 18,
-                          fontFamily: 'DIN1451Alt',
-                        ),
-                        textAlign: TextAlign.center,
+          child: Container(
+            width: double.infinity,
+            color: Colors.transparent,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_errorMessage.isNotEmpty)
+                  Flexible(
+                    child: Text(
+                      _errorMessage,
+                      style: TextStyle(
+                        color: currentTheme.speedText,
+                        fontSize: 18,
+                        fontFamily: 'DIN1451Alt',
                       ),
-                    )
-                  else ...[
-                    Flexible(
-                      flex: 3,
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else ...[
+                  Flexible(
+                    flex: 3,
+                    child: GestureDetector(
+                      onTap: _cycleUnit,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -185,8 +185,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                         ),
                       ),
                     ),
-                    Flexible(
-                      flex: 1,
+                  ),
+                  Flexible(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: _cycleUnit,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -199,13 +202,13 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
-        // Compass area - compact but tappable
+        // Compass area - compact but fully tappable for theme cycling
         Expanded(
           flex: 3,
           child: GestureDetector(
@@ -251,33 +254,33 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
   Widget _buildLandscapeLayout(String speedText, ColorTheme currentTheme) {
     return Row(
       children: [
-        // Speed area - takes majority of space
+        // Speed area - takes majority of space, precise tap targets on text only
         Expanded(
           flex: 65,
-          child: GestureDetector(
-            onTap: _cycleUnit,
-            child: Container(
-              height: double.infinity,
-              color: Colors.transparent,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_errorMessage.isNotEmpty)
-                    Flexible(
-                      child: Text(
-                        _errorMessage,
-                        style: TextStyle(
-                          color: currentTheme.speedText,
-                          fontSize: 16,
-                          fontFamily: 'DIN1451Alt',
-                        ),
-                        textAlign: TextAlign.center,
+          child: Container(
+            height: double.infinity,
+            color: Colors.transparent,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_errorMessage.isNotEmpty)
+                  Flexible(
+                    child: Text(
+                      _errorMessage,
+                      style: TextStyle(
+                        color: currentTheme.speedText,
+                        fontSize: 16,
+                        fontFamily: 'DIN1451Alt',
                       ),
-                    )
-                  else ...[
-                    Flexible(
-                      flex: 3,
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else ...[
+                  Flexible(
+                    flex: 3,
+                    child: GestureDetector(
+                      onTap: _cycleUnit,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -291,8 +294,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                         ),
                       ),
                     ),
-                    Flexible(
-                      flex: 1,
+                  ),
+                  Flexible(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: _cycleUnit,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -305,13 +311,13 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
-        // Compass area - smaller but prominent
+        // Compass area - smaller but fully tappable for theme cycling
         Expanded(
           flex: 35,
           child: GestureDetector(
