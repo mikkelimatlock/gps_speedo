@@ -21,6 +21,7 @@ dependencies:
   # Keep screen awake during navigation
   wakelock_plus: ^1.2.8
 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
