@@ -3,11 +3,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class GpsService {
+  static double? _lastValidHeading;
+  
   static Stream<Position> get positionStream {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 1,
+        distanceFilter: 0,
+        timeLimit: Duration(seconds: 10),
       ),
     );
   }
@@ -21,16 +24,24 @@ class GpsService {
     return await Geolocator.isLocationServiceEnabled();
   }
   
+  static double getCachedHeading(double heading) {
+    if (heading >= 0 && heading <= 360) {
+      _lastValidHeading = heading;
+      return heading;
+    }
+    return _lastValidHeading ?? 0.0;
+  }
+  
   static String getCompassDirection(double heading) {
-    if (heading < 0) return 'N/A';
+    final cachedHeading = getCachedHeading(heading);
     
     const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-    final index = ((heading + 22.5) / 45).floor() % 8;
+    final index = ((cachedHeading + 22.5) / 45).floor() % 8;
     return directions[index];
   }
   
   static String formatHeading(double heading) {
-    if (heading < 0) return 'N/A';
-    return '${heading.round()} ${getCompassDirection(heading)}';
+    final cachedHeading = getCachedHeading(heading);
+    return '${cachedHeading.round()}° ${getCompassDirection(heading)}';
   }
 }

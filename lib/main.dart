@@ -5,6 +5,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'speed_units.dart';
 import 'gps_service.dart';
 import 'color_themes.dart';
+import 'dart:math' as math; // Import for math.pi
 
 void main() {
   runApp(const SpeedoApp());
@@ -117,11 +118,18 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
       _currentThemeIndex = ColorThemes.getNextThemeIndex(_currentThemeIndex);
     });
   }
+  
+  String _getSpeedDisplayText(double displaySpeed) {
+    if (_speed == 0.0 && _heading == -1.0) {
+      return '--';
+    }
+    return displaySpeed.toStringAsFixed(0);
+  }
 
   @override
   Widget build(BuildContext context) {
     final displaySpeed = _currentUnit.convert(_speed);
-    final speedText = displaySpeed.toStringAsFixed(0);
+    final speedText = _getSpeedDisplayText(displaySpeed);
     final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
     
     return Scaffold(
@@ -222,10 +230,13 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                 children: [
                   Flexible(
                     flex: 2,
-                    child: Icon(
-                      Icons.navigation,
-                      size: 100,
-                      color: currentTheme.headingText,
+                    child: Transform.rotate(
+                      angle: (_heading >= 0 && _heading < 360) ? (_heading * math.pi / 180.0) : 0,
+                      child: Icon(
+                        Icons.navigation,
+                        size: 100,
+                        color: currentTheme.headingText,
+                      ),
                     ),
                   ),
                   Flexible(
