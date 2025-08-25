@@ -15,7 +15,8 @@
       "Bash(powershell:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "WebSearch",
-      "WebFetch(domain:pub.dev)"
+      "WebFetch(domain:pub.dev)",
+      "Bash(git commit:*)"
     ],
     "defaultMode": "acceptEdits"
   },
