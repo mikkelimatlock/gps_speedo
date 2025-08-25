@@ -25,21 +25,22 @@ A customizable Flutter GPS speedometer app targeting Android devices, emphasizin
 
 ### Technical Stack
 ```
-Dependencies: geolocator, permission_handler, provider, shared_preferences, flutter_material_color_picker
+Dependencies: geolocator, permission_handler, provider, shared_preferences, flutter_material_color_picker, flutter_overlay_window
 Platforms: Android (primary), iOS support included but untested
 Architecture: Provider + Consumer pattern for reactive state management
-Permissions: Location services with graceful degradation
+Permissions: Location services + SYSTEM_ALERT_WINDOW for overlay functionality
 ```
 
 ## Recent Updates (v2.1.0)
 
 ### ✅ Completed Features
-- [x] **Floating Window Overlay**: System-level overlay window for persistent speed display
-- [x] **Split Decimal Display**: Main speed prominent, decimal fraction smaller and faded
-- [x] **Optimized Content Sizing**: Maximized readability with improved flex ratios
-- [x] **Navigation Icon Trigger**: Tap compass area to launch floating window
-- [x] **Multiple Close Options**: Overlay close button and long-press navigation area
-- [x] **Android Permissions**: SYSTEM_ALERT_WINDOW and foreground service support
+- [x] **Floating Window Overlay**: System-level overlay window for persistent speed display over other apps
+- [x] **Split Decimal Display**: Main speed prominent with smaller, faded decimal fraction for better readability
+- [x] **Optimized Content Sizing**: Maximized readability with improved responsive layout and flex ratios
+- [x] **Navigation Icon Trigger**: Tap compass/navigation area to launch floating window overlay
+- [x] **Multiple Close Options**: Overlay close button and long-press navigation area for easy dismissal
+- [x] **Theme Synchronization**: Dark/Light theme and speed unit settings sync between main app and overlay
+- [x] **Android System Integration**: SYSTEM_ALERT_WINDOW permissions and foreground service configuration
 
 ### Previous Updates (v1.1)
 - [x] **Portrait/Landscape Support**: Automatic orientation detection implemented  
@@ -48,8 +49,13 @@ Permissions: Location services with graceful degradation
 
 ## TODO - Future Improvements
 
+### Known Issues (v2.1.0)
+- [ ] **Floating Window Sizing**: Content sizing calculations need refinement for better overlay display
+- [ ] **Overlay Positioning**: Improve stability and positioning consistency across different devices
+- [ ] **Content Synchronization**: Enhance real-time sync between main app and overlay window
+
 ### Critical Issues
-- [ ] **Dependency Updates**: Update 10 packages to latest compatible versions
+- [ ] **Dependency Updates**: Update packages to latest compatible versions
 - [ ] **Orientation Override**: Fix auto-rotate to work regardless of system toggle status
 
 ### UI/UX Enhancements

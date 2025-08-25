@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -16,57 +15,9 @@ void main() {
 // Entry point for overlay window
 @pragma("vm:entry-point")
 void overlayMain() {
-  runApp(MaterialApp(
+  runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        width: 180,
-        height: 100,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.7), width: 2),
-        ),
-        child: Stack(
-          children: [
-            const Center(
-              child: Text(
-                'GPS\nSPEEDO',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.green, 
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            // Close button
-            Positioned(
-              top: 4,
-              right: 4,
-              child: GestureDetector(
-                onTap: () => FlutterOverlayWindow.closeOverlay(),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+    home: OverlaySpeedometer(),
   ));
 }
 
@@ -157,8 +108,6 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   void _handleBackgroundTransition() {
     // When app goes to background, show floating window if GPS is active and no error
-    print('App went to background, checking conditions for floating window...');
-    print('Speed: $_speed, Error: $_errorMessage');
     // Temporarily disable auto-trigger for debugging
     // if (_speed >= 0 && _errorMessage.isEmpty) {
     //   _showFloatingWindow();
@@ -206,23 +155,43 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     setState(() {
       _currentUnit = _currentUnit.next;
     });
+    // Share unit change with overlay if active
+    FlutterOverlayWindow.shareData({
+      'action': 'updateSettings',
+      'unitIndex': _currentUnit.index,
+      'themeIndex': _currentThemeIndex,
+    });
   }
 
   void _cycleTheme() {
     setState(() {
       _currentThemeIndex = ColorThemes.getNextThemeIndex(_currentThemeIndex);
     });
+    // Share theme change with overlay if active
+    FlutterOverlayWindow.shareData({
+      'action': 'updateSettings',
+      'themeIndex': _currentThemeIndex,
+      'unitIndex': _currentUnit.index,
+    });
   }
 
   Future<void> _showFloatingWindow() async {
     try {
-      // Share current unit with overlay
+      // Get screen dimensions for proportional sizing
+      final screenSize = MediaQuery.of(context).size;
+      final overlayWidth = (screenSize.width * 0.4).round(); // 40% of screen width
+      final overlayHeight = (overlayWidth * 0.5).round(); // 2:1 aspect ratio
+      
+      // Share current unit and theme with overlay
       await FlutterOverlayWindow.shareData({
-        'action': 'updateUnit',
+        'action': 'updateSettings',
         'unitIndex': _currentUnit.index,
+        'themeIndex': _currentThemeIndex,
+        'screenWidth': screenSize.width,
+        'screenHeight': screenSize.height,
       });
 
-      // Show the overlay with safer positioning
+      // Show the overlay with proportional sizing
       await FlutterOverlayWindow.showOverlay(
         enableDrag: true,
         overlayTitle: "GPS Speedometer",
@@ -230,11 +199,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         flag: OverlayFlag.defaultFlag,
         visibility: NotificationVisibility.visibilityPublic,
         positionGravity: PositionGravity.none,
-        width: 180,
-        height: 100,
+        width: overlayWidth,
+        height: overlayHeight,
       );
     } catch (e) {
-      print('Error showing floating window: $e');
+      // Silent error handling - floating window issues shouldn't crash main app
     }
   }
 
@@ -242,7 +211,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     try {
       await FlutterOverlayWindow.closeOverlay();
     } catch (e) {
-      print('Error closing floating window: $e');
+      // Silent error handling - floating window issues shouldn't crash main app
     }
   }
   
@@ -539,77 +508,214 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   }
 }
 
-class SimpleOverlaySpeedometer extends StatelessWidget {
-  const SimpleOverlaySpeedometer({super.key});
+class OverlaySpeedometer extends StatefulWidget {
+  const OverlaySpeedometer({super.key});
+
+  @override
+  State<OverlaySpeedometer> createState() => _OverlaySpeedometerState();
+}
+
+class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
+  double _speed = 0.0;
+  double _heading = -1.0;
+  SpeedUnit _currentUnit = SpeedUnit.kmh;
+  int _currentThemeIndex = 0;
+  StreamSubscription<Position>? _positionSubscription;
+  double _screenWidth = 400;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToMainAppMessages();
+    _initializeGps();
+  }
+
+  void _listenToMainAppMessages() {
+    FlutterOverlayWindow.overlayListener.listen((data) {
+      if (data is Map) {
+        if (data.containsKey('unitIndex')) {
+          setState(() {
+            _currentUnit = SpeedUnit.values[data['unitIndex'] ?? 0];
+          });
+        }
+        if (data.containsKey('themeIndex')) {
+          setState(() {
+            _currentThemeIndex = data['themeIndex'] ?? 0;
+          });
+        }
+        if (data.containsKey('screenWidth')) {
+          setState(() {
+            _screenWidth = data['screenWidth']?.toDouble() ?? 400;
+          });
+        }
+      }
+    });
+  }
+
+  Future<void> _initializeGps() async {
+    try {
+      final serviceEnabled = await GpsService.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      final permissionGranted = await GpsService.requestPermissions();
+      if (!permissionGranted) return;
+
+      _positionSubscription = GpsService.positionStream.listen(
+        (position) {
+          setState(() {
+            _speed = position.speed;
+            _heading = position.heading;
+          });
+        },
+        onError: (error) {
+          // Silent error handling for overlay
+        },
+      );
+    } catch (e) {
+      // Silent error handling for overlay
+    }
+  }
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    print("SimpleOverlaySpeedometer build() called");
+    final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
+    final displaySpeed = _currentUnit.convert(_speed);
+    // Per NOTES.txt: Speed section shows only integral part (no decimal, no unit)
+    final speedText = displaySpeed < 1.0 ? '--' : displaySpeed.toInt().toString();
+    
+    // Calculate proportional dimensions
+    final overlayWidth = (_screenWidth * 0.4);
+    final overlayHeight = (overlayWidth * 0.5);
+    final fontSize = (overlayWidth * 0.2); // Font size proportional to width
+
     return Material(
       color: Colors.transparent,
-      child: Container(
-        width: 200,
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.9), // Highly visible red background
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.yellow, width: 3), // Bright yellow border
-        ),
-        child: Stack(
-          children: [
-            // Test content - much more visible
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      child: SizedBox(
+        // Use SizedBox to fill the overlay window completely
+        width: double.infinity,
+        height: double.infinity,
+        child: Container(
+          decoration: BoxDecoration(
+            // Use proper color opacity without deprecated properties
+            color: Color.fromARGB(
+              ((currentTheme.background.a * 255.0).round() * 0.85).round(),
+              (currentTheme.background.r * 255.0).round(),
+              (currentTheme.background.g * 255.0).round(),
+              (currentTheme.background.b * 255.0).round(),
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Color.fromARGB(
+                ((currentTheme.speedText.a * 255.0).round() * 0.3).round(),
+                (currentTheme.speedText.r * 255.0).round(),
+                (currentTheme.speedText.g * 255.0).round(),
+                (currentTheme.speedText.b * 255.0).round(),
+              ), 
+              width: 1
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Main content - landscape layout (1:1 flex as per NOTES.txt)
+              Row(
                 children: [
-                  const Text(
-                    'FLOATING',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  // Speed section - left half
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Text(
+                            speedText,
+                            style: TextStyle(
+                              fontSize: fontSize,
+                              fontWeight: FontWeight.w300,
+                              color: currentTheme.speedText,
+                              fontFamily: 'DIN1451Alt',
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const Text(
-                    'WINDOW',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.yellow,
-                    ),
-                  ),
-                  const Text(
-                    'WORKING!',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
+                  // Direction section - right half (same as full-screen behavior)
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            flex: 2,
+                            child: Transform.rotate(
+                              angle: (_heading >= 0 && _heading < 360) ? (_heading * math.pi / 180.0) : 0,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Icon(
+                                  Icons.navigation,
+                                  size: fontSize * 0.8,
+                                  color: currentTheme.headingText,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Flexible(
+                            flex: 1,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Text(
+                                GpsService.formatHeading(_heading),
+                                style: TextStyle(
+                                  fontSize: fontSize * 0.4,
+                                  color: currentTheme.headingText,
+                                  fontFamily: 'DIN1451Alt',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-            // Close button
-            Positioned(
-              top: 2,
-              right: 2,
-              child: GestureDetector(
-                onTap: () => FlutterOverlayWindow.closeOverlay(),
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Color.fromARGB(255, 255, 171, 16), // call the current background colour defined as in `color_themes.dart`
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 12,
+              // Semi-transparent close button (only interaction as per NOTES.txt)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: GestureDetector(
+                  onTap: () => FlutterOverlayWindow.closeOverlay(),
+                  child: Container(
+                    width: overlayHeight * 0.2,
+                    height: overlayHeight * 0.2,
+                    decoration: BoxDecoration(
+                      // Avoid deprecated withOpacity - use Color.fromARGB instead
+                      color: const Color.fromARGB(153, 244, 67, 54), // red with 60% opacity
+                      borderRadius: BorderRadius.circular(overlayHeight * 0.1),
+                      border: Border.all(
+                        color: const Color.fromARGB(204, 255, 255, 255), // white with 80% opacity
+                        width: 1
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      color: const Color.fromARGB(229, 255, 255, 255), // white with 90% opacity
+                      size: overlayHeight * 0.15,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
