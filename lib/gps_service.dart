@@ -41,6 +41,6 @@ class GpsService {
   
   static String formatHeading(double heading) {
     final cachedHeading = getCachedHeading(heading);
-    return '${cachedHeading.round()}° ${getCompassDirection(heading)}';
+    return '${cachedHeading.round()} ${getCompassDirection(heading)}'; // don't add that degree symbol, this is cooler
   }
 }
