@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class ColorTheme {
   final Color background;
   final Color speedText;
+  final Color speedTextSub;
   final Color headingText;
   final Color unitText;
   final String name;
@@ -10,6 +11,7 @@ class ColorTheme {
   const ColorTheme({
     required this.background,
     required this.speedText,
+    required this.speedTextSub,
     required this.headingText,
     required this.unitText,
     required this.name,
@@ -22,6 +24,7 @@ class ColorThemes {
       name: 'Yuzuki',
       background: Color.fromARGB(255, 114, 85, 109),
       speedText: Color.fromARGB(255, 246, 224, 255),
+      speedTextSub: Color.fromARGB(255, 245, 217, 245),
       headingText: Color.fromARGB(255, 244, 201, 255),
       unitText: Color.fromARGB(255, 244, 201, 255),
     ),
@@ -29,6 +32,7 @@ class ColorThemes {
       name: 'Yuuparo',
       background: Color.fromARGB(255, 85, 99, 112),
       speedText: Color.fromARGB(255, 255, 171, 16),
+      speedTextSub: Color.fromARGB(255, 245, 204, 116),
       headingText: Color.fromARGB(255, 228, 235, 238),
       unitText: Color.fromARGB(255, 141, 196, 184),
     ),
@@ -36,6 +40,7 @@ class ColorThemes {
       name: 'Yuzuki Light',
       background: Color.fromARGB(255, 246, 224, 255),
       speedText: Color.fromARGB(255, 114, 85, 109),
+      speedTextSub: Color.fromARGB(255, 161, 138, 170),
       headingText: Color.fromARGB(255, 140, 94, 151),
       unitText: Color.fromARGB(255, 114, 85, 109),
     ),
@@ -43,6 +48,7 @@ class ColorThemes {
       name: 'Yuuparo Light',
       background: Color.fromARGB(255, 228, 235, 238),
       speedText: Color.fromARGB(255, 85, 99, 112),
+      speedTextSub: Color.fromARGB(255, 100, 100, 131),
       headingText: Color.fromARGB(255, 255, 157, 65),
       unitText: Color.fromARGB(255, 98, 124, 118),
     ),

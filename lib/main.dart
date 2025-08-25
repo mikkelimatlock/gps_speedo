@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'speed_units.dart';
 import 'gps_service.dart';
 import 'color_themes.dart';
@@ -11,10 +13,61 @@ void main() {
   runApp(const SpeedoApp());
 }
 
-// Entry point for future overlay mode
-void mainOverlay() {
-  // TODO: Initialize overlay-specific setup
-  runApp(const SpeedoApp(isOverlayMode: true));
+// Entry point for overlay window
+@pragma("vm:entry-point")
+void overlayMain() {
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        width: 180,
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.7), width: 2),
+        ),
+        child: Stack(
+          children: [
+            const Center(
+              child: Text(
+                'GPS\nSPEEDO',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.green, 
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            // Close button
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => FlutterOverlayWindow.closeOverlay(),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ));
 }
 
 class SpeedoApp extends StatelessWidget {
@@ -46,17 +99,19 @@ class SpeedometerScreen extends StatefulWidget {
   State<SpeedometerScreen> createState() => _SpeedometerScreenState();
 }
 
-class _SpeedometerScreenState extends State<SpeedometerScreen> {
+class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindingObserver {
   double _speed = 0.0;
   double _heading = -1.0;
   SpeedUnit _currentUnit = SpeedUnit.kmh;
   int _currentThemeIndex = 0;
   StreamSubscription<Position>? _positionSubscription;
   String _errorMessage = '';
+  bool _isInBackground = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeGps();
     _enableWakelock();
   }
@@ -71,9 +126,43 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _positionSubscription?.cancel();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+        // App went to background (home key pressed or task switch)
+        if (!_isInBackground) {
+          _isInBackground = true;
+          _handleBackgroundTransition();
+        }
+        break;
+      case AppLifecycleState.resumed:
+        // App came back to foreground
+        _isInBackground = false;
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        break;
+    }
+  }
+
+  void _handleBackgroundTransition() {
+    // When app goes to background, show floating window if GPS is active and no error
+    print('App went to background, checking conditions for floating window...');
+    print('Speed: $_speed, Error: $_errorMessage');
+    // Temporarily disable auto-trigger for debugging
+    // if (_speed >= 0 && _errorMessage.isEmpty) {
+    //   _showFloatingWindow();
+    // }
   }
 
   Future<void> _initializeGps() async {
@@ -124,12 +213,89 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
       _currentThemeIndex = ColorThemes.getNextThemeIndex(_currentThemeIndex);
     });
   }
+
+  Future<void> _showFloatingWindow() async {
+    try {
+      // Share current unit with overlay
+      await FlutterOverlayWindow.shareData({
+        'action': 'updateUnit',
+        'unitIndex': _currentUnit.index,
+      });
+
+      // Show the overlay with safer positioning
+      await FlutterOverlayWindow.showOverlay(
+        enableDrag: true,
+        overlayTitle: "GPS Speedometer",
+        overlayContent: 'GPS Speedometer Overlay',
+        flag: OverlayFlag.defaultFlag,
+        visibility: NotificationVisibility.visibilityPublic,
+        positionGravity: PositionGravity.none,
+        width: 180,
+        height: 100,
+      );
+    } catch (e) {
+      print('Error showing floating window: $e');
+    }
+  }
+
+  Future<void> _closeFloatingWindow() async {
+    try {
+      await FlutterOverlayWindow.closeOverlay();
+    } catch (e) {
+      print('Error closing floating window: $e');
+    }
+  }
   
   String _getSpeedDisplayText(double displaySpeed) {
     if (_speed < 1.0 && (_heading < 0.0 || _heading >= 360.0)) {
       return '--';
     }
     return displaySpeed.toStringAsFixed(1);
+  }
+
+  Widget _buildSpeedDisplay(String speedText, ColorTheme currentTheme, double fontSize, {bool isLandscape = false}) {
+    if (speedText == '--') {
+      return Text(
+        speedText,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w300,
+          color: currentTheme.speedText,
+          fontFamily: 'DIN1451Alt',
+        ),
+      );
+    }
+
+    // Split speed into integral and decimal parts
+    final parts = speedText.split('.');
+    final integralPart = parts[0];
+    final decimalPart = parts.length > 1 ? '.${parts[1]}' : '.0';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(
+          integralPart,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w300,
+            color: currentTheme.speedText,
+            fontFamily: 'DIN1451Alt',
+          ),
+        ),
+        Text(
+          decimalPart,
+          style: TextStyle(
+            fontSize: fontSize * 0.5, // 60% of main font size
+            fontWeight: FontWeight.w300,
+            color: currentTheme.speedTextSub,
+            fontFamily: 'DIN1451Alt',
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -165,7 +331,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
           child: Container(
             width: double.infinity,
             color: Colors.transparent,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -183,33 +349,25 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                   )
                 else ...[
                   Flexible(
-                    flex: 3,
+                    flex: 4,
                     child: GestureDetector(
-                      onTap: _cycleUnit,
+                      onTap: _cycleTheme, // Tap speed to cycle theme
                       child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          speedText,
-                          style: TextStyle(
-                            fontSize: 160,
-                            fontWeight: FontWeight.w300,
-                            color: currentTheme.speedText,
-                            fontFamily: 'DIN1451Alt',
-                          ),
-                        ),
+                        fit: BoxFit.contain,
+                        child: _buildSpeedDisplay(speedText, currentTheme, 200),
                       ),
                     ),
                   ),
                   Flexible(
                     flex: 1,
                     child: GestureDetector(
-                      onTap: _cycleUnit,
+                      onTap: _cycleUnit, // clicking on unit to cycle unit is more intuitive
                       child: FittedBox(
-                        fit: BoxFit.scaleDown,
+                        fit: BoxFit.contain,
                         child: Text(
                           _currentUnit.label,
                           style: TextStyle(
-                            fontSize: 64,
+                            fontSize: 80,
                             color: currentTheme.unitText,
                             fontFamily: 'DIN1451Alt',
                           ),
@@ -222,37 +380,41 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
             ),
           ),
         ),
-        // Compass area - compact but fully tappable for theme cycling
+        // Compass area - compact but fully tappable for floating window
         Expanded(
           flex: 3,
           child: GestureDetector(
-            onTap: _cycleTheme,
+            onTap: _showFloatingWindow, // Tap navigation icon to show floating window
+            onLongPress: _closeFloatingWindow, // Long press to close floating window
             child: Container(
               width: double.infinity,
               color: Colors.transparent,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(2),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Flexible(
-                    flex: 2,
+                    flex: 3,
                     child: Transform.rotate(
                       angle: (_heading >= 0 && _heading < 360) ? (_heading * math.pi / 180.0) : 0,
-                      child: Icon(
-                        Icons.navigation,
-                        size: 100,
-                        color: currentTheme.headingText,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: Icon(
+                          Icons.navigation,
+                          size: 80,
+                          color: currentTheme.headingText,
+                        ),
                       ),
                     ),
                   ),
                   Flexible(
                     flex: 1,
                     child: FittedBox(
-                      fit: BoxFit.scaleDown,
+                      fit: BoxFit.contain,
                       child: Text(
                         GpsService.formatHeading(_heading),
                         style: TextStyle(
-                          fontSize: 96,
+                          fontSize: 50,
                           color: currentTheme.headingText,
                           fontFamily: 'DIN1451Alt',
                         ),
@@ -273,11 +435,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
       children: [
         // Speed area - takes majority of space, precise tap targets on text only
         Expanded(
-          flex: 65,
+          flex: 66,
           child: Container(
             height: double.infinity,
             color: Colors.transparent,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(3),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -295,20 +457,12 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                   )
                 else ...[
                   Flexible(
-                    flex: 3,
+                    flex: 4,
                     child: GestureDetector(
-                      onTap: _cycleUnit,
+                      onTap: _cycleTheme,
                       child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          speedText,
-                          style: TextStyle(
-                            fontSize: 120,
-                            fontWeight: FontWeight.w300,
-                            color: currentTheme.speedText,
-                            fontFamily: 'DIN1451Alt',
-                          ),
-                        ),
+                        fit: BoxFit.contain,
+                        child: _buildSpeedDisplay(speedText, currentTheme, 160, isLandscape: true),
                       ),
                     ),
                   ),
@@ -317,11 +471,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                     child: GestureDetector(
                       onTap: _cycleUnit,
                       child: FittedBox(
-                        fit: BoxFit.scaleDown,
+                        fit: BoxFit.contain,
                         child: Text(
                           _currentUnit.label,
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 50,
                             color: currentTheme.unitText,
                             fontFamily: 'DIN1451Alt',
                           ),
@@ -334,35 +488,41 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
             ),
           ),
         ),
-        // Compass area - smaller but fully tappable for theme cycling
+        // Compass area - smaller but fully tappable for floating window
         Expanded(
-          flex: 35,
+          flex: 33,
           child: GestureDetector(
-            onTap: _cycleTheme,
+            onTap: _showFloatingWindow,
+            onLongPress: _closeFloatingWindow, // Long press to close floating window
             child: Container(
               height: double.infinity,
               color: Colors.transparent,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(2),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Flexible(
-                    flex: 2,
-                    child: Icon(
-                      Icons.navigation,
-                      size: 32,
-                      color: currentTheme.headingText,
+                    flex: 3,
+                    child: Transform.rotate(
+                      angle: (_heading >= 0 && _heading < 360) ? (_heading * math.pi / 180.0) : 0,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: Icon(
+                          Icons.navigation,
+                          size: 60,
+                          color: currentTheme.headingText,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
                   Flexible(
                     flex: 1,
                     child: FittedBox(
-                      fit: BoxFit.scaleDown,
+                      fit: BoxFit.contain,
                       child: Text(
                         GpsService.formatHeading(_heading),
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 30,
                           color: currentTheme.headingText,
                           fontFamily: 'DIN1451Alt',
                         ),
@@ -375,6 +535,83 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class SimpleOverlaySpeedometer extends StatelessWidget {
+  const SimpleOverlaySpeedometer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    print("SimpleOverlaySpeedometer build() called");
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 200,
+        height: 120,
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.9), // Highly visible red background
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.yellow, width: 3), // Bright yellow border
+        ),
+        child: Stack(
+          children: [
+            // Test content - much more visible
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'FLOATING',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Text(
+                    'WINDOW',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  const Text(
+                    'WORKING!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Close button
+            Positioned(
+              top: 2,
+              right: 2,
+              child: GestureDetector(
+                onTap: () => FlutterOverlayWindow.closeOverlay(),
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 255, 171, 16), // call the current background colour defined as in `color_themes.dart`
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

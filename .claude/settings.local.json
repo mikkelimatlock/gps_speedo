@@ -13,7 +13,9 @@
       "Bash(cp:*)",
       "Bash(flutter:*)",
       "Bash(powershell:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebSearch",
+      "WebFetch(domain:pub.dev)"
     ],
     "defaultMode": "acceptEdits"
   },

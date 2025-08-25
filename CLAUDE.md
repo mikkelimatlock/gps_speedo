@@ -3,8 +3,8 @@
 ## Project Overview
 A customizable Flutter GPS speedometer app targeting Android devices, emphasizing modularity and user customization.
 
-## Current Status: v1.1 Complete 
-**Enhanced GPS speedometer with improved user experience and customization options.**
+## Current Status: v2.1.0 Complete 
+**GPS speedometer with floating window overlay functionality and optimized visual design.**
 
 ### Architecture Implemented
 - **State Management:** Provider pattern
@@ -31,10 +31,18 @@ Architecture: Provider + Consumer pattern for reactive state management
 Permissions: Location services with graceful degradation
 ```
 
-## Recent Updates (v1.1)
+## Recent Updates (v2.1.0)
 
 ### ✅ Completed Features
-- [x] **Portrait/Landscape Support**: Automatic orientation detection implemented
+- [x] **Floating Window Overlay**: System-level overlay window for persistent speed display
+- [x] **Split Decimal Display**: Main speed prominent, decimal fraction smaller and faded
+- [x] **Optimized Content Sizing**: Maximized readability with improved flex ratios
+- [x] **Navigation Icon Trigger**: Tap compass area to launch floating window
+- [x] **Multiple Close Options**: Overlay close button and long-press navigation area
+- [x] **Android Permissions**: SYSTEM_ALERT_WINDOW and foreground service support
+
+### Previous Updates (v1.1)
+- [x] **Portrait/Landscape Support**: Automatic orientation detection implemented  
 - [x] **Interactive Gauge**: Click gauge face to switch digital/analog modes
 - [x] **Extended Speed Units**: Added knots support with quick selector buttons
 
