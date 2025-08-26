@@ -182,8 +182,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     debugPrint('  systemScreen: ${systemSize.width.round()}x${systemSize.height.round()}');
     
     // Calculate overlay size the same way as when launching
-    final overlayWidth = (systemSize.width * 0.4).round();
-    final overlayHeight = (overlayWidth * 0.5).round();
+    final overlayWidth = (systemSize.width * 0.6).round();
+    final overlayHeight = (overlayWidth * 0.75).round();
     
     FlutterOverlayWindow.shareData({
       'action': 'updateDisplay',
