@@ -25,21 +25,29 @@ A customizable Flutter GPS speedometer app targeting Android devices, emphasizin
 
 ### Technical Stack
 ```
-Dependencies: geolocator, permission_handler, provider, shared_preferences, flutter_material_color_picker
+Dependencies: geolocator, permission_handler, provider, shared_preferences, flutter_material_color_picker, flutter_overlay_window
 Platforms: Android (primary), iOS support included but untested
 Architecture: Provider + Consumer pattern for reactive state management
-Permissions: Location services with graceful degradation
+Permissions: Location services + SYSTEM_ALERT_WINDOW for overlay functionality
 ```
 
 ## Recent Updates (v2.1.0)
 
-### ✅ Completed Features
-- [x] **Floating Window Overlay**: System-level overlay window for persistent speed display
-- [x] **Split Decimal Display**: Main speed prominent, decimal fraction smaller and faded
-- [x] **Optimized Content Sizing**: Maximized readability with improved flex ratios
-- [x] **Navigation Icon Trigger**: Tap compass area to launch floating window
-- [x] **Multiple Close Options**: Overlay close button and long-press navigation area
-- [x] **Android Permissions**: SYSTEM_ALERT_WINDOW and foreground service support
+### ✅ Completed Features (Master Branch - Stable)
+- [x] **Split Decimal Display**: Main speed prominent with smaller, faded decimal fraction for better readability
+- [x] **Optimized Content Sizing**: Maximized readability with improved responsive layout and flex ratios
+- [x] **Basic Floating Window**: Simple overlay with "GPS SPEEDO" text and close button (stable implementation)
+- [x] **Navigation Icon Trigger**: Tap compass/navigation area to launch floating window overlay
+- [x] **Multiple Close Options**: Overlay close button and long-press navigation area for easy dismissal
+- [x] **Android System Integration**: SYSTEM_ALERT_WINDOW permissions and foreground service configuration
+
+### 🚧 Work in Progress Features (dev/floating-window-wip Branch - Seriously Buggy)
+- [ ] **Advanced Floating Window Overlay**: System-level overlay with live GPS data - basic functionality works but seriously buggy
+  - GPS data synchronization implemented but unreliable
+  - Theme/unit sync between main app and overlay works partially
+  - Proportional sizing and positioning needs major refinement
+  - Close button functionality works but overlay behavior inconsistent
+  - Performance may impact main app, needs optimization
 
 ### Previous Updates (v1.1)
 - [x] **Portrait/Landscape Support**: Automatic orientation detection implemented  
@@ -48,9 +56,18 @@ Permissions: Location services with graceful degradation
 
 ## TODO - Future Improvements
 
-### Critical Issues
-- [ ] **Dependency Updates**: Update 10 packages to latest compatible versions
+### Known Issues
+
+**Master Branch (v2.1.0 - Stable):**
+- [ ] **Dependency Updates**: Update packages to latest compatible versions
 - [ ] **Orientation Override**: Fix auto-rotate to work regardless of system toggle status
+
+**Dev Branch (floating-window-wip - Seriously Buggy):**
+- [ ] **Floating Window Reliability**: Overlay behavior inconsistent across different devices and Android versions
+- [ ] **GPS Data Sync**: Real-time GPS synchronization between main app and overlay unreliable
+- [ ] **Theme/Unit Sync**: Setting synchronization works partially but not consistently
+- [ ] **Overlay Positioning**: Poor positioning stability, sizing calculations need major work
+- [ ] **Performance**: Overlay may impact main app performance, needs optimization
 
 ### UI/UX Enhancements
 - [ ] **Background Customization**: Custom background color selection
@@ -73,6 +90,11 @@ Permissions: Location services with graceful degradation
 - **Build System**: Standard Flutter build process, first builds take time for Android SDK setup
 - **Memory**: Project uses automatic Claude Code memory - this file for major decisions only
 - **Git**: Active repository at `https://github.com/mikkelimatlock/gps_speedo`
+
+## Branch Strategy
+- **master**: Stable releases, ready for production APK builds
+- **dev/floating-window-wip**: Advanced floating window development (seriously buggy, not for release)
+- Tagged releases: v2.1.0 on master branch contains stable basic floating window
 
 ## Code Patterns to Maintain
 - Provider pattern for state management
