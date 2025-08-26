@@ -191,7 +191,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         'screenHeight': screenSize.height,
       });
 
-      // Show the overlay with proportional sizing
+      // Show the overlay with hybrid sizing - proportional but with reasonable limits
       await FlutterOverlayWindow.showOverlay(
         enableDrag: true,
         overlayTitle: "GPS Speedometer",
@@ -199,8 +199,9 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         flag: OverlayFlag.defaultFlag,
         visibility: NotificationVisibility.visibilityPublic,
         positionGravity: PositionGravity.none,
-        width: overlayWidth,
-        height: overlayHeight,
+        // Use proportional sizing with minimum reasonable dimensions
+        width: overlayWidth.clamp(280, 400),
+        height: overlayHeight.clamp(140, 300),
       );
     } catch (e) {
       // Silent error handling - floating window issues shouldn't crash main app
@@ -296,7 +297,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       children: [
         // Speed area - takes most space, precise tap targets on text only
         Expanded(
-          flex: 7,
+          flex: 65,
           child: Container(
             width: double.infinity,
             color: Colors.transparent,
@@ -351,7 +352,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         ),
         // Compass area - compact but fully tappable for floating window
         Expanded(
-          flex: 3,
+          flex: 32,
           child: GestureDetector(
             onTap: _showFloatingWindow, // Tap navigation icon to show floating window
             onLongPress: _closeFloatingWindow, // Long press to close floating window
