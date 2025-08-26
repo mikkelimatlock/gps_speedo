@@ -230,8 +230,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         flag: OverlayFlag.defaultFlag,
         visibility: NotificationVisibility.visibilityPublic,
         positionGravity: PositionGravity.none,
-        width: 180,
-        height: 100,
+        width: 320,
+        height: 280,
       );
     } catch (e) {
       print('Error showing floating window: $e');
@@ -327,7 +327,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       children: [
         // Speed area - takes most space, precise tap targets on text only
         Expanded(
-          flex: 7,
+          flex: 65,
           child: Container(
             width: double.infinity,
             color: Colors.transparent,
@@ -382,7 +382,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         ),
         // Compass area - compact but fully tappable for floating window
         Expanded(
-          flex: 3,
+          flex: 32,
           child: GestureDetector(
             onTap: _showFloatingWindow, // Tap navigation icon to show floating window
             onLongPress: _closeFloatingWindow, // Long press to close floating window
