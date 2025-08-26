@@ -10,9 +10,9 @@ import 'color_themes.dart';
 import 'dart:math' as math; // Import for math.pi
 
 // Debug helper - only prints in debug builds
-void debugPrint(String message) {
+void customDebugPrint(String message) {
   if (kDebugMode) {
-    debugPrint(message);
+    print(message);
   }
 }
 
@@ -23,7 +23,7 @@ void main() {
 // Entry point for overlay window
 @pragma("vm:entry-point")
 void overlayMain() {
-  debugPrint('[Overlay] 🚀 overlayMain() called');
+  customDebugPrint('[Overlay] 🚀 overlayMain() called');
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: OverlaySpeedometer(),
@@ -174,12 +174,12 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     final window = WidgetsBinding.instance.platformDispatcher.views.first;
     final systemSize = window.physicalSize / window.devicePixelRatio;
     
-    debugPrint('[Main] 📤 SENDING to overlay:');
-    debugPrint('  speedText: "$speedText"');
-    debugPrint('  headingText: "$headingText"');
-    debugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
-    debugPrint('  unit: ${_currentUnit.label}, theme: $_currentThemeIndex');
-    debugPrint('  systemScreen: ${systemSize.width.round()}x${systemSize.height.round()}');
+    customDebugPrint('[Main] 📤 SENDING to overlay:');
+    customDebugPrint('  speedText: "$speedText"');
+    customDebugPrint('  headingText: "$headingText"');
+    customDebugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
+    customDebugPrint('  unit: ${_currentUnit.label}, theme: $_currentThemeIndex');
+    customDebugPrint('  systemScreen: ${systemSize.width.round()}x${systemSize.height.round()}');
     
     // Calculate overlay size the same way as when launching
     final overlayWidth = (systemSize.width * 0.6).round();
@@ -194,8 +194,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       'themeIndex': _currentThemeIndex,
       'systemScreenWidth': systemSize.width,
       'systemScreenHeight': systemSize.height,
-      'overlayWidth': overlayWidth.clamp(280, 480).toDouble(),
-      'overlayHeight': overlayHeight.clamp(140, 240).toDouble(),
+      'overlayWidth': overlayWidth.clamp(280, 500).toDouble(),
+      'overlayHeight': overlayHeight.clamp(140, 400).toDouble(),
     });
   }
 
@@ -224,8 +224,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       final overlayHeight = (overlayWidth * 0.5).round(); // 2:1 aspect ratio
       
       // Debug info for development
-      // debugPrint('[Main] System resolution: ${systemSize.width.round()}x${systemSize.height.round()}');
-      // debugPrint('[Main] Calculated overlay size: ${overlayWidth}x${overlayHeight}');
+      // customDebugPrint('[Main] System resolution: ${systemSize.width.round()}x${systemSize.height.round()}');
+      // customDebugPrint('[Main] Calculated overlay size: ${overlayWidth}x${overlayHeight}');
       
       // Send initial display data to overlay including screen size
       final displaySpeed = _currentUnit.convert(_speed);
@@ -258,7 +258,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         height: overlayHeight.clamp(140, 240),
       );
       
-      debugPrint('[Main] 🟢 OVERLAY LAUNCHED - Size: ${overlayWidth.clamp(280, 480)}x${overlayHeight.clamp(140, 240)}');
+      customDebugPrint('[Main] 🟢 OVERLAY LAUNCHED - Size: ${overlayWidth.clamp(280, 480)}x${overlayHeight.clamp(140, 240)}');
       setState(() {
         _isOverlayActive = true;
       });
@@ -269,18 +269,18 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   Future<void> _closeFloatingWindow() async {
     if (!_isOverlayActive) {
-      debugPrint('[Main] ⚠️  No overlay to close');
+      customDebugPrint('[Main] ⚠️  No overlay to close');
       return;
     }
     
     try {
       await FlutterOverlayWindow.closeOverlay();
-      debugPrint('[Main] 🔴 OVERLAY CLOSED - Requested from main app');
+      customDebugPrint('[Main] 🔴 OVERLAY CLOSED - Requested from main app');
       setState(() {
         _isOverlayActive = false;
       });
     } catch (e) {
-      debugPrint('[Main] ❌ Error closing overlay: $e');
+      customDebugPrint('[Main] ❌ Error closing overlay: $e');
     }
   }
   
@@ -423,7 +423,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           flex: 32,
           child: GestureDetector(
             onTap: () {
-              debugPrint('[Main] 🖱️  Navigation area tapped - overlay active: $_isOverlayActive');
+              customDebugPrint('[Main] 🖱️  Navigation area tapped - overlay active: $_isOverlayActive');
               if (_isOverlayActive) {
                 _closeFloatingWindow();
               } else {
@@ -431,7 +431,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               }
             },
             onLongPress: () {
-              debugPrint('[Main] 🖱️  Navigation area long-pressed - overlay active: $_isOverlayActive');
+              customDebugPrint('[Main] 🖱️  Navigation area long-pressed - overlay active: $_isOverlayActive');
               _closeFloatingWindow();
             },
             child: Container(
@@ -549,7 +549,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           flex: 33,
           child: GestureDetector(
             onTap: () {
-              debugPrint('[Main] 🖱️  Navigation area tapped (landscape) - overlay active: $_isOverlayActive');
+              customDebugPrint('[Main] 🖱️  Navigation area tapped (landscape) - overlay active: $_isOverlayActive');
               if (_isOverlayActive) {
                 _closeFloatingWindow();
               } else {
@@ -557,7 +557,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               }
             },
             onLongPress: () {
-              debugPrint('[Main] 🖱️  Navigation area long-pressed (landscape) - overlay active: $_isOverlayActive');
+              customDebugPrint('[Main] 🖱️  Navigation area long-pressed (landscape) - overlay active: $_isOverlayActive');
               _closeFloatingWindow();
             },
             child: Container(
@@ -624,7 +624,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[Overlay] 🟢 CREATED - Floating window initialized');
+    customDebugPrint('[Overlay] 🟢 CREATED - Floating window initialized');
     _getSystemScreenSize();
     _listenToMainAppMessages();
   }
@@ -637,18 +637,18 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
       final devicePixelRatio = window.devicePixelRatio;
       final systemSize = physicalSize / devicePixelRatio;
       
-      debugPrint('[Overlay] 🔍 Screen detection:');
-      debugPrint('  physicalSize: ${physicalSize.width.round()}x${physicalSize.height.round()}');
-      debugPrint('  devicePixelRatio: $devicePixelRatio');
-      debugPrint('  calculated systemSize: ${systemSize.width.round()}x${systemSize.height.round()}');
+      customDebugPrint('[Overlay] 🔍 Screen detection:');
+      customDebugPrint('  physicalSize: ${physicalSize.width.round()}x${physicalSize.height.round()}');
+      customDebugPrint('  devicePixelRatio: $devicePixelRatio');
+      customDebugPrint('  calculated systemSize: ${systemSize.width.round()}x${systemSize.height.round()}');
       
       setState(() {
         _systemScreenWidth = systemSize.width;
       });
       
-      debugPrint('[Overlay] ✅ _systemScreenWidth set to: ${_systemScreenWidth.round()}');
+      customDebugPrint('[Overlay] ✅ _systemScreenWidth set to: ${_systemScreenWidth.round()}');
     } catch (e) {
-      debugPrint('[Overlay] ❌ Error getting system screen size: $e');
+      customDebugPrint('[Overlay] ❌ Error getting system screen size: $e');
       // Fallback to reasonable default
       setState(() {
         _systemScreenWidth = 400;
@@ -676,20 +676,20 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
           }
         });
         
-        debugPrint('[Overlay] 📡 UPDATE received:');
-        debugPrint('  speedText: "$_speedText"');
-        debugPrint('  headingText: "$_headingText"'); 
-        debugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
-        debugPrint('  themeIndex: $_currentThemeIndex');
-        debugPrint('  systemScreenWidth: ${_systemScreenWidth.round()}');
-        debugPrint('  overlaySize from main: ${_overlayWidth.round()}x${_overlayHeight.round()}');
+        customDebugPrint('[Overlay] 📡 UPDATE received:');
+        customDebugPrint('  speedText: "$_speedText"');
+        customDebugPrint('  headingText: "$_headingText"'); 
+        customDebugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
+        customDebugPrint('  themeIndex: $_currentThemeIndex');
+        customDebugPrint('  systemScreenWidth: ${_systemScreenWidth.round()}');
+        customDebugPrint('  overlaySize from main: ${_overlayWidth.round()}x${_overlayHeight.round()}');
       }
     });
   }
 
   @override
   void dispose() {
-    debugPrint('[Overlay] 🔴 DESTROYED - Floating window disposed');
+    customDebugPrint('[Overlay] 🔴 DESTROYED - Floating window disposed');
     // No GPS subscription to cancel - overlay is display-only
     super.dispose();
   }
@@ -701,7 +701,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
     // Use overlay dimensions provided by main app (not calculated locally)
     final fontSize = (_overlayWidth * 0.2); // Font size proportional to actual overlay width
     
-    debugPrint('[Overlay] 📐 Window size: ${_overlayWidth.round()}x${_overlayHeight.round()}, fontSize: ${fontSize.round()}');
+    customDebugPrint('[Overlay] 📐 Window size: ${_overlayWidth.round()}x${_overlayHeight.round()}, fontSize: ${fontSize.round()}');
 
     return Material(
       color: Colors.transparent,
@@ -793,20 +793,20 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                 child: GestureDetector(
                   onTap: () => FlutterOverlayWindow.closeOverlay(),
                   child: Container(
-                    width: _overlayHeight * 0.2,
-                    height: _overlayHeight * 0.2,
+                    width: 32,
+                    height: 32, // fixed
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.6),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(_overlayHeight * 0.1),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.8),
+                        color: currentTheme.speedTextSub.withOpacity(0.9),
                         width: 1
                       ),
                     ),
                     child: Icon(
                       Icons.close,
-                      color: Colors.white.withOpacity(0.9),
-                      size: _overlayHeight * 0.15,
+                      color: currentTheme.speedText.withOpacity(0.9),
+                      size: 28,
                     ),
                   ),
                 ),
