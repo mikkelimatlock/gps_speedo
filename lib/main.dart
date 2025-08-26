@@ -68,6 +68,27 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   String _errorMessage = '';
   bool _isInBackground = false;
   bool _isOverlayActive = false;
+  
+  // Single source of truth for overlay sizing
+  Map<String, int> _getOverlaySize() {
+    final window = WidgetsBinding.instance.platformDispatcher.views.first;
+    final physicalSize = window.physicalSize;
+    final devicePixelRatio = window.devicePixelRatio;
+    final systemSize = physicalSize / devicePixelRatio;
+    
+    customDebugPrint('[Main] 🔍 Screen size analysis:');
+    customDebugPrint('  physicalSize: ${physicalSize.width.round()}x${physicalSize.height.round()}');
+    customDebugPrint('  devicePixelRatio: $devicePixelRatio');
+    customDebugPrint('  calculated systemSize: ${systemSize.width.round()}x${systemSize.height.round()}');
+    
+    // Use actual physical pixels, not scaled logical pixels
+    final overlayWidth = (physicalSize.width * 0.4).round(); // 40% of actual screen width
+    final overlayHeight = (overlayWidth * 0.6).round();
+    
+    customDebugPrint('  using fixed overlay size: ${overlayWidth}x${overlayHeight}');
+    
+    return {'width': overlayWidth, 'height': overlayHeight};
+  }
 
   @override
   void initState() {
@@ -75,6 +96,18 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     WidgetsBinding.instance.addObserver(this);
     _initializeGps();
     _enableWakelock();
+    _listenToOverlayMessages();
+  }
+  
+  void _listenToOverlayMessages() {
+    FlutterOverlayWindow.overlayListener.listen((data) {
+      if (data is Map && data['action'] == 'overlayClosed') {
+        customDebugPrint('[Main] 📡 Received overlay close notification');
+        setState(() {
+          _isOverlayActive = false;
+        });
+      }
+    });
   }
 
   Future<void> _enableWakelock() async {
@@ -170,20 +203,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     final speedText = displaySpeed < 1.0 ? '--' : displaySpeed.toInt().toString();
     final headingText = GpsService.formatHeading(_heading);
     
-    // Get system screen size to share with overlay
-    final window = WidgetsBinding.instance.platformDispatcher.views.first;
-    final systemSize = window.physicalSize / window.devicePixelRatio;
-    
     customDebugPrint('[Main] 📤 SENDING to overlay:');
     customDebugPrint('  speedText: "$speedText"');
     customDebugPrint('  headingText: "$headingText"');
     customDebugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
     customDebugPrint('  unit: ${_currentUnit.label}, theme: $_currentThemeIndex');
-    customDebugPrint('  systemScreen: ${systemSize.width.round()}x${systemSize.height.round()}');
-    
-    // Calculate overlay size the same way as when launching
-    final overlayWidth = (systemSize.width * 0.6).round();
-    final overlayHeight = (overlayWidth * 0.75).round();
     
     FlutterOverlayWindow.shareData({
       'action': 'updateDisplay',
@@ -192,10 +216,6 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       'heading': _heading,
       'unitIndex': _currentUnit.index,
       'themeIndex': _currentThemeIndex,
-      'systemScreenWidth': systemSize.width,
-      'systemScreenHeight': systemSize.height,
-      'overlayWidth': overlayWidth.clamp(280, 500).toDouble(),
-      'overlayHeight': overlayHeight.clamp(140, 400).toDouble(),
     });
   }
 
@@ -217,17 +237,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   Future<void> _showFloatingWindow() async {
     try {
-      // Get actual system screen resolution for proportional sizing
-      final window = WidgetsBinding.instance.platformDispatcher.views.first;
-      final systemSize = window.physicalSize / window.devicePixelRatio;
-      final overlayWidth = (systemSize.width * 0.4).round(); // 40% of system screen width
-      final overlayHeight = (overlayWidth * 0.5).round(); // 2:1 aspect ratio
+      // Use centralized sizing function
+      final overlaySize = _getOverlaySize();
       
-      // Debug info for development
-      // customDebugPrint('[Main] System resolution: ${systemSize.width.round()}x${systemSize.height.round()}');
-      // customDebugPrint('[Main] Calculated overlay size: ${overlayWidth}x${overlayHeight}');
-      
-      // Send initial display data to overlay including screen size
+      // Send initial display data WITH size info (only needed on creation)
       final displaySpeed = _currentUnit.convert(_speed);
       final speedText = displaySpeed < 1.0 ? '--' : displaySpeed.toInt().toString();
       final headingText = GpsService.formatHeading(_heading);
@@ -239,10 +252,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         'heading': _heading,
         'unitIndex': _currentUnit.index,
         'themeIndex': _currentThemeIndex,
-        'systemScreenWidth': systemSize.width,
-        'systemScreenHeight': systemSize.height,
-        'overlayWidth': overlayWidth.clamp(280, 480).toDouble(),
-        'overlayHeight': overlayHeight.clamp(140, 240).toDouble(),
+        'overlayWidth': overlaySize['width']!.toDouble(),
+        'overlayHeight': overlaySize['height']!.toDouble(),
       });
 
       // Show the overlay with proportional sizing based on system resolution
@@ -253,12 +264,12 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         flag: OverlayFlag.defaultFlag,
         visibility: NotificationVisibility.visibilityPublic,
         positionGravity: PositionGravity.none,
-        // Use system-based proportional sizing with reasonable limits
-        width: overlayWidth.clamp(280, 480),
-        height: overlayHeight.clamp(140, 240),
+        // Use consistent sizing from centralized function
+        width: overlaySize['width']!,
+        height: overlaySize['height']!,
       );
       
-      customDebugPrint('[Main] 🟢 OVERLAY LAUNCHED - Size: ${overlayWidth.clamp(280, 480)}x${overlayHeight.clamp(140, 240)}');
+      customDebugPrint('[Main] 🟢 OVERLAY LAUNCHED - Size: ${overlaySize['width']}x${overlaySize['height']}');
       setState(() {
         _isOverlayActive = true;
       });
@@ -732,7 +743,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                         child: FittedBox(
                           fit: BoxFit.contain,
                           child: Text(
-                            _speedText,
+                            (_speedText == "--" ? "0" : _speedText),
                             style: TextStyle(
                               fontSize: fontSize,
                               fontWeight: FontWeight.w300,
@@ -791,10 +802,17 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                 top: 4,
                 right: 4,
                 child: GestureDetector(
-                  onTap: () => FlutterOverlayWindow.closeOverlay(),
+                  onTap: () {
+                    customDebugPrint('[Overlay] 🔴 Close button tapped');
+                    // Notify main app that overlay is closing
+                    FlutterOverlayWindow.shareData({
+                      'action': 'overlayClosed',
+                    });
+                    FlutterOverlayWindow.closeOverlay();
+                  },
                   child: Container(
-                    width: 32,
-                    height: 32, // fixed
+                    width: 18,
+                    height: 18, // fixed
                     decoration: BoxDecoration(
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(_overlayHeight * 0.1),
@@ -806,7 +824,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                     child: Icon(
                       Icons.close,
                       color: currentTheme.speedText.withOpacity(0.9),
-                      size: 28,
+                      size: 15,
                     ),
                   ),
                 ),
