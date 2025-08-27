@@ -25,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.0"
+  bg_launcher:
+    dependency: "direct main"
+    description:
+      name: bg_launcher
+      sha256: c4c1dfffdcdb2896411a8f2fce8a8fac4712b1664b243b85f69d5347367ea504
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   boolean_selector:
     dependency: transitive
     description:
