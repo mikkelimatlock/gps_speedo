@@ -76,6 +76,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   String _errorMessage = '';
   bool _isInBackground = false;
   bool _isOverlayActive = false;
+  bool _tapCloseRequested = false;
+  Timer? _tapCloseTimer;
   
   // Single source of truth for overlay sizing
   Map<String, int> _getOverlaySize() {
@@ -100,6 +102,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   Timer? _backgroundHeartbeatTimer;
   Timer? _overlayDataPushTimer;
+  Timer? _overlayStatusCheckTimer;
 
   @override
   void initState() {
@@ -121,23 +124,49 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     }
     
     customDebugPrint('[Main] 🎧 Starting overlay message listener');
-    _overlaySubscription = FlutterOverlayWindow.overlayListener.listen((data) {
-      customDebugPrint('[Main] 📡 Received message from overlay: $data');
-      if (data is Map) {
-        switch (data['action']) {
-          case 'overlayClosed':
-            customDebugPrint('[Main] ✅ Overlay close notification received');
-            _handleOverlayClose();
-            break;
-          case 'bringToFront':
-            customDebugPrint('[Main] 🚀 Bring to front request received');
-            _bringAppToFront();
-            break;
-          default:
-            customDebugPrint('[Main] ⚠️  Unknown overlay action: ${data['action']}');
+    _overlaySubscription = FlutterOverlayWindow.overlayListener.listen(
+      (data) {
+        customDebugPrint('[Main] 📡 RAW message from overlay: $data (type: ${data.runtimeType})');
+        try {
+          if (data is Map) {
+            final action = data['action'];
+            customDebugPrint('[Main] 🎯 Processing overlay action: "$action"');
+            switch (action) {
+              case 'overlayClosed':
+                customDebugPrint('[Main] ✅ Processing overlay close notification');
+                _handleOverlayClose();
+                customDebugPrint('[Main] ✅ Overlay close processing completed');
+                break;
+              case 'longPressClose':
+                customDebugPrint('[Main] 🔴 Long press close signal received - will bring to foreground on close');
+                _tapCloseRequested = true; // Reusing the flag for long press
+                // Set a timer to reset this flag if overlay doesn't close soon
+                _tapCloseTimer?.cancel();
+                _tapCloseTimer = Timer(const Duration(milliseconds: 500), () {
+                  customDebugPrint('[Main] ⏰ Long press close timer expired - resetting flag');
+                  _tapCloseRequested = false;
+                });
+                break;
+              case 'bringToFront':
+                customDebugPrint('[Main] 🚀 Processing bring to front request from overlay');
+                _bringAppToFront();
+                customDebugPrint('[Main] 🚀 Bring to front processing completed');
+                break;
+              default:
+                customDebugPrint('[Main] ⚠️  Unknown overlay action: "$action"');
+            }
+          } else {
+            customDebugPrint('[Main] ⚠️  Message is not a Map: $data');
+          }
+        } catch (e, stackTrace) {
+          customDebugPrint('[Main] ❌ Error processing overlay message: $e');
+          customDebugPrint('[Main] 📚 Stack trace: $stackTrace');
         }
-      }
-    });
+      },
+      onError: (error) {
+        customDebugPrint('[Main] ❌ Overlay listener error: $error');
+      },
+    );
   }
   
   void _stopListeningToOverlayMessages() {
@@ -146,11 +175,55 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     _overlaySubscription = null;
   }
   
-  void _handleOverlayClose() {
+  void _startOverlayStatusCheck() {
+    // Cancel any existing timer first
+    _overlayStatusCheckTimer?.cancel();
+    
+    _overlayStatusCheckTimer = Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
+      if (_isOverlayActive) {
+        try {
+          final isActive = await FlutterOverlayWindow.isActive();
+          if (!isActive) {
+            customDebugPrint('[Main] 🔍 Overlay status check: overlay is no longer active');
+            timer.cancel(); // Cancel the timer before handling close
+            _handleOverlayClose();
+          }
+        } catch (e) {
+          customDebugPrint('[Main] ❌ Overlay status check failed: $e');
+        }
+      } else {
+        // If overlay is not supposed to be active, cancel the timer
+        customDebugPrint('[Main] 🔍 Overlay not active - stopping status check');
+        timer.cancel();
+      }
+    });
+    customDebugPrint('[Main] 🔍 Started overlay status monitoring');
+  }
+
+  void _handleOverlayClose({bool bringToForeground = false}) {
+    // Check if this was a long-press close based on recent signal
+    final shouldBringToFront = bringToForeground || _tapCloseRequested;
+    
+    customDebugPrint('[Main] 🔄 Handling overlay close - bringToForeground: $bringToForeground, longPressRequested: $_tapCloseRequested');
+    
+    // Cancel timers and reset flag
+    _tapCloseTimer?.cancel();
+    _overlayStatusCheckTimer?.cancel();
+    _tapCloseRequested = false;
+    
     setState(() {
       _isOverlayActive = false;
     });
     _stopListeningToOverlayMessages(); // Clean up listener when overlay closes
+    
+    // Bring app to foreground on long press close, otherwise quiet close
+    if (shouldBringToFront) {
+      customDebugPrint('[Main] 🚀 Bringing app to foreground after long press close');
+      _bringAppToFront();
+    } else {
+      customDebugPrint('[Main] 🤫 Overlay closed without bring-to-front request');
+    }
+    customDebugPrint('[Main] ✅ Overlay close handling completed');
   }
   
   
@@ -181,20 +254,34 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     });
   }
   
-  void _bringAppToFront() {
+  void _bringAppToFront() async {
+    customDebugPrint('[Main] 🚀 _bringAppToFront() called - attempting to bring app to foreground');
     try {
       // Use proper Android method to bring app to foreground
       BgLauncher.bringAppToForeground();
-      customDebugPrint('[Main] ✅ App brought to front via BgLauncher');
+      customDebugPrint('[Main] ✅ App successfully brought to front via BgLauncher');
       
+      // Update app state to reflect foreground status
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _isInBackground = false;
+        });
+        customDebugPrint('[Main] 🔄 App state updated - _isInBackground set to false');
       }
     } catch (e) {
-      customDebugPrint('[Main] ❌ Failed to bring app to front: $e');
-      // Fallback to simple state update (original method)
-      if (mounted) {
-        setState(() {});
+      customDebugPrint('[Main] ❌ BgLauncher failed to bring app to front: $e');
+      
+      // Enhanced fallback: try alternative approach
+      try {
+        customDebugPrint('[Main] 🔄 Attempting fallback method...');
+        if (mounted) {
+          setState(() {
+            _isInBackground = false;
+          });
+        }
+        customDebugPrint('[Main] ⚠️  Using fallback - state updated but may not bring to actual foreground');
+      } catch (fallbackError) {
+        customDebugPrint('[Main] ❌ Fallback method also failed: $fallbackError');
       }
     }
   }
@@ -224,6 +311,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     _overlaySubscription?.cancel();
     _backgroundHeartbeatTimer?.cancel();
     _overlayDataPushTimer?.cancel();
+    _overlayStatusCheckTimer?.cancel();
+    _tapCloseTimer?.cancel();
     WakelockPlus.disable();
     customDebugPrint('[Main] 🛑 Main app disposed - all subscriptions and timers canceled');
     super.dispose();
@@ -415,6 +504,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     
     // Send complete display data to overlay including screen size
     final displaySpeed = _currentUnit.convert(_speed);
+    final unitText = _currentUnit.label.toString();
     final speedText = displaySpeed < 1.0 ? '--' : displaySpeed.toInt().toString();
     final headingText = GpsService.formatHeading(_heading);
     
@@ -422,11 +512,12 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     customDebugPrint('  speedText: "$speedText"');
     customDebugPrint('  headingText: "$headingText"');
     customDebugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
-    customDebugPrint('  unit: ${_currentUnit.label}, theme: $_currentThemeIndex');
+    customDebugPrint('  unit: $unitText, theme: $_currentThemeIndex');
     
     FlutterOverlayWindow.shareData({
       'action': 'updateDisplay',
       'speedText': speedText,
+      'unitText': unitText,
       'headingText': headingText,
       'heading': _heading,
       'unitIndex': _currentUnit.index,
@@ -492,6 +583,9 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       
       // Start listening to overlay messages after state is set
       _startListeningToOverlayMessages();
+      
+      // Start periodic overlay status check since message-based detection is unreliable
+      _startOverlayStatusCheck();
       
       // Force UI update
       if (mounted) setState(() {});
@@ -863,6 +957,7 @@ class OverlaySpeedometer extends StatefulWidget {
 
 class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
   String _speedText = '--';
+  String _unitText = 'km/h';
   String _headingText = 'N/A';
   double _heading = -1.0;
   int _currentThemeIndex = 0;
@@ -873,9 +968,15 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
   @override
   void initState() {
     super.initState();
-    customDebugPrint('[Overlay] 🟢 CREATED - Floating window initialized');
+    customDebugPrint('[Overlay] 🟢 CREATED - Floating window initialized (${DateTime.now().millisecondsSinceEpoch})');
     _getSystemScreenSize();
     _listenToMainAppMessages();
+  }
+  
+  @override
+  void dispose() {
+    customDebugPrint('[Overlay] 🔴 DISPOSING - Overlay widget disposed (${DateTime.now().millisecondsSinceEpoch})');
+    super.dispose();
   }
 
   void _getSystemScreenSize() {
@@ -910,6 +1011,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
       if (data is Map && data['action'] == 'updateDisplay') {
         setState(() {
           _speedText = data['speedText'] ?? '--';
+          _unitText = data['unitText'];
           _headingText = data['headingText'] ?? 'N/A';
           _heading = data['heading']?.toDouble() ?? -1.0;
           _currentThemeIndex = data['themeIndex'] ?? 0;
@@ -936,20 +1038,16 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
     });
   }
 
-  @override
-  void dispose() {
-    customDebugPrint('[Overlay] 🔴 DESTROYED - Floating window disposed');
-    // No GPS subscription to cancel - overlay is display-only
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
+    final buildTimestamp = DateTime.now().millisecondsSinceEpoch;
     final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
     
     // Use overlay dimensions provided by main app (not calculated locally)
     final fontSize = (_overlayWidth * 0.2); // Font size proportional to actual overlay width
     
+    customDebugPrint('[Overlay] 🔨 Building overlay widget ($buildTimestamp)');
     customDebugPrint('[Overlay] 📐 Window size: ${_overlayWidth.round()}x${_overlayHeight.round()}, fontSize: ${fontSize.round()}');
 
     return Material(
@@ -976,19 +1074,42 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                   Expanded(
                     flex: 1,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(6),
                       child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: Text(
-                            (_speedText == "--" ? "0" : _speedText),
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              fontWeight: FontWeight.w300,
-                              color: currentTheme.speedText,
-                              fontFamily: 'DIN1451Alt',
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              flex: 3,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text(
+                                  (_speedText == "--" ? "0" : _speedText),
+                                  style: TextStyle(
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.w300,
+                                    color: currentTheme.speedText,
+                                    fontFamily: 'DIN1451Alt',
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            Flexible(
+                              flex: 1,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text(
+                                  _unitText,
+                                  style: TextStyle(
+                                    fontSize: fontSize * 0.6,
+                                    fontWeight: FontWeight.w300,
+                                    color: currentTheme.unitText,
+                                    fontFamily: 'DIN1451Alt',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1038,40 +1159,80 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
               // Transparent full-overlay gesture detection layer
               Positioned.fill(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.translucent, // Ensure gestures are captured
+                  onPanStart: (details) {
+                    customDebugPrint('[Overlay] 🖐️ Pan start detected - gestures are working!');
+                  },
                   onLongPress: () async {
-                    customDebugPrint('[Overlay] 🔴 Long press detected - closing overlay');
-                    // Add haptic feedback for long press
+                    final timestamp = DateTime.now().millisecondsSinceEpoch;
+                    customDebugPrint('[Overlay] 🔴 Long press detected - closing overlay and bringing main app to front ($timestamp)');
                     try {
-                      await HapticFeedback.mediumImpact();
-                      customDebugPrint('[Overlay] 📳 Haptic feedback triggered');
-                    } catch (e) {
-                      customDebugPrint('[Overlay] ❌ Haptic feedback failed: $e');
-                    }
-                    // Notify main app before closing
-                    try {
-                      // can we base this on handleOverlayClose() or _closeFloatingWindow()?
-                      await FlutterOverlayWindow.shareData({
-                        'action': 'overlayClosed',
+                      // Skip haptic feedback in overlay - platform services not available
+                      customDebugPrint('[Overlay] 📳 Skipping haptic feedback (overlay context limitation)');
+                      
+                      // Signal main app to bring to foreground when overlay closes (non-blocking)
+                      customDebugPrint('[Overlay] 📤 Sending bring-to-front close signal...');
+                      FlutterOverlayWindow.shareData({
+                        'action': 'longPressClose',
+                      }).then((_) {
+                        customDebugPrint('[Overlay] ✅ Long press close signal sent successfully');
+                      }).catchError((error) {
+                        customDebugPrint('[Overlay] ❌ Long press close signal failed (expected): $error');
                       });
-                      customDebugPrint('[Overlay] 📤 Close notification sent');
-                    } catch (e) {
-                      customDebugPrint('[Overlay] ❌ Close notification failed: $e');
+                      
+                      // Small delay to give signal a chance
+                      await Future.delayed(const Duration(milliseconds: 50));
+                      
+                      // Close the overlay
+                      customDebugPrint('[Overlay] 🔴 Attempting to close overlay...');
+                      await FlutterOverlayWindow.closeOverlay();
+                      customDebugPrint('[Overlay] ✅ Overlay closed successfully via long press');
+                      
+                    } catch (e, stackTrace) {
+                      customDebugPrint('[Overlay] ❌ Long press close failed: $e');
+                      customDebugPrint('[Overlay] 📚 Stack trace: $stackTrace');
+                      // Fallback: try to close anyway
+                      try {
+                        customDebugPrint('[Overlay] 🔄 Attempting fallback close...');
+                        await FlutterOverlayWindow.closeOverlay();
+                        customDebugPrint('[Overlay] ✅ Fallback close succeeded');
+                      } catch (fallbackError) {
+                        customDebugPrint('[Overlay] ❌ Fallback close also failed: $fallbackError');
+                      }
                     }
-                    FlutterOverlayWindow.closeOverlay();
                   },
                   onTap: () async {
-                    customDebugPrint('[Overlay] 👆 Tap detected - bringing main app to front');
+                    final timestamp = DateTime.now().millisecondsSinceEpoch;
+                    customDebugPrint('[Overlay] 👆 Tap detected - bringing main app to foreground ($timestamp)');
                     try {
-                      await FlutterOverlayWindow.shareData({
+                      // Try to signal main app to come to foreground (non-blocking)
+                      customDebugPrint('[Overlay] 📤 Attempting to signal bring-to-front...');
+                      FlutterOverlayWindow.shareData({
                         'action': 'bringToFront',
+                      }).catchError((error) {
+                        customDebugPrint('[Overlay] ❌ Bring-to-front signal failed (expected): $error');
                       });
-                      customDebugPrint('[Overlay] 📤 Bring-to-front message sent');
-                    } catch (e) {
-                      customDebugPrint('[Overlay] ❌ Bring-to-front message failed: $e');
+                      
+                      customDebugPrint('[Overlay] ✅ Tap gesture completed (overlay stays open)');
+                      
+                    } catch (e, stackTrace) {
+                      customDebugPrint('[Overlay] ❌ Tap gesture failed: $e');
+                      customDebugPrint('[Overlay] 📚 Stack trace: $stackTrace');
                     }
                   },
                   child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
                     color: Colors.transparent,
+                    child: Center(
+                      child: Text(
+                        'GESTURE',
+                        style: TextStyle(
+                          color: Colors.transparent,
+                          fontSize: 1,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

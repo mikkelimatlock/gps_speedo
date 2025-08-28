@@ -25,19 +25,36 @@
 
 ## 🔄 REMAINING
 
-**Overlay Interaction Issues:**
-- [ ] Fix overlay tap to bring main app to front - currently non-functional
-- [ ] Fix overlay long press close functionality - currently non-functional
+**Overlay Interaction Issues (Partially Working):**
+- [x] Fixed overlay unit display syntax and layout issues
+- [x] Implemented overlay status monitoring with FlutterOverlayWindow.isActive()
+- [x] Fixed duplicate dispose() method causing widget lifecycle issues
+- [x] Removed tap-to-close to prevent accidental closure from dragging
+- [x] Enhanced debugging for overlay creation/disposal tracking
+- [ ] **Long press close on second+ overlays non-functional** - gestures work on first overlay only
+- [x] Tap brings main app to foreground (when bidirectional communication works)
+- [ ] Bidirectional overlay communication unreliable (shareData() hangs or fails silently)
+
+**Root Cause Analysis:**
+- HapticFeedback.* calls hang indefinitely in overlay context (platform services unavailable)
+- FlutterOverlayWindow.shareData() from overlay to main app is fundamentally broken
+- Overlay status monitoring via .isActive() works reliably
+- Gesture detection works on first overlay but fails on subsequent overlays
+
+**Technical Approach:**
+- Fire-and-forget communication pattern implemented
+- Non-blocking overlay interactions with fallback mechanisms
+- Comprehensive debug logging for troubleshooting
 
 **Critical Issues:**
-- [ ] Fix Android APK installation - both debug and release builds marked as invalid by Android
+- ✅ Fix Android APK installation - both debug and release builds marked as invalid by Android
 - [ ] Update packages to latest compatible versions  
 
 **Future Features:**
 - [ ] Desktop widget
-- [ ] Background color customization
+- [ ] Background color customization  
 - [ ] User-defined layout customization
 
-## 🎯 STATUS: v2.2.2 Background Persistence Enhanced
+## 🎯 STATUS: v2.2.3-wip Overlay Interactions Partially Fixed
 
-Core floating window functionality and data flow working well. Overlay displays updates smoothly with 2Hz cached GPS data. Background persistence significantly improved. Overlay gesture interactions need attention but main UI fully functional.
+Overlay functionality **somewhat working**: first overlay responds to gestures, subsequent overlays display correctly but gesture detection fails. Bidirectional communication between overlay and main app proven unreliable. Status monitoring approach implemented as workaround. Main speedometer fully functional.

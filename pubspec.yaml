@@ -46,3 +46,4 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "icon/speedo.png"
+  adaptive_icon_foreground: "icon/speedo.png"

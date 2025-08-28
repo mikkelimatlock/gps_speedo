@@ -49,7 +49,7 @@ class ColorThemes {
       background: Color.fromARGB(255, 228, 235, 238),
       speedText: Color.fromARGB(255, 85, 99, 112),
       speedTextSub: Color.fromARGB(255, 100, 100, 131),
-      headingText: Color.fromARGB(255, 255, 157, 65),
+      headingText: Color.fromARGB(255, 221, 118, 0),
       unitText: Color.fromARGB(255, 98, 124, 118),
     ),
   ];
