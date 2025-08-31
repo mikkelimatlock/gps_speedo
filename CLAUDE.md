@@ -3,7 +3,7 @@
 ## Project Overview
 A customizable Flutter GPS speedometer app targeting Android devices, emphasizing modularity and user customization.
 
-## Current Status: v2.1.0 Complete 
+## Current Status: v2.3.0-dev Complete 
 **GPS speedometer with floating window overlay functionality and optimized visual design.**
 
 ### Architecture Implemented
@@ -31,7 +31,18 @@ Architecture: Provider + Consumer pattern for reactive state management
 Permissions: Location services + SYSTEM_ALERT_WINDOW for overlay functionality
 ```
 
-## Recent Updates (v2.1.0)
+## Recent Updates (v2.3.0-dev)
+
+### ✅ GPS Manager Architecture (Feature Branch - Functional)
+- [x] **GpsDataManager Service**: Centralized singleton for all GPS data processing
+- [x] **Clean Data Flow**: GPS Hardware → GpsDataManager → Main App → Overlay messaging
+- [x] **Separate GPS Timeouts**: 20s initial fix, 2s ongoing updates for indoor/outdoor use
+- [x] **Haptic Feedback**: Added to all main UI interactions (theme, unit, navigation)
+- [x] **Code Cleanup**: Reduced verbose logging, removed unused debug variables
+- [x] **Stream Architecture**: Broadcast streams for reactive GPS data updates
+- [x] **Background Survival**: Manager integrates with existing wake locks and heartbeat
+
+### Previous Updates (v2.1.0)
 
 ### ✅ Completed Features (Master Branch - Stable)
 - [x] **Split Decimal Display**: Main speed prominent with smaller, faded decimal fraction for better readability
@@ -93,8 +104,9 @@ Permissions: Location services + SYSTEM_ALERT_WINDOW for overlay functionality
 
 ## Branch Strategy
 - **master**: Stable releases, ready for production APK builds
-- **dev/floating-window-wip**: Advanced floating window development (seriously buggy, not for release)
-- Tagged releases: v2.1.0 on master branch contains stable basic floating window
+- **feature/gps-manager-architecture**: GPS manager architecture development (functional, ready for merge)
+- **dev/floating-window-wip**: Legacy overlay development (deprecated)
+- Tagged releases: v2.2.2 on master branch contains stable functionality
 
 ## Code Patterns to Maintain
 - Provider pattern for state management

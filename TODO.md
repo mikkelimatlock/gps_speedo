@@ -3,25 +3,28 @@
 
 **Project Vision:** Ultra-lightweight Android split-screen/floating window GPS speedometer.
 
-## ✅ COMPLETED (v2.2.2 - Master Branch)
+## ✅ COMPLETED (v2.3.0-dev - Feature Branch)
+
+**v2.3.0-dev GPS Manager Architecture:**
+- Implemented GpsDataManager singleton service for centralized GPS data processing
+- Refactored main app to use processed GPS data streams instead of raw position data
+- Added haptic feedback to all main UI tap interactions (theme, unit, navigation)
+- Cleaned up verbose debug logging while preserving essential error handling
+- Separate GPS timeouts: 20s initial fix, 2s ongoing updates for indoor/outdoor use
+- Temporarily disabled low-speed logic for indoor testing and development
+- Clean data flow: GPS Hardware → GpsDataManager → Main App → Overlay
+- Foundation ready for intelligent caching logic implementation
 
 **v2.2.2 Background Persistence & Communication:**
-- Implemented lazy overlay listener creation/destruction - eliminated ghost overlay
-- Added 2Hz cached GPS data push for smooth overlay updates
 - Enhanced background persistence with wake locks and heartbeat mechanisms  
 - Proper Android foreground functionality using bg_launcher package
 - Fixed overlay state management race conditions
-- Added comprehensive debug logging throughout communication system
 - Improved Android manifest with background persistence permissions
-- Eliminated overlay status polling interference with data flow
 
 **v2.2.0 Floating Window Improvements:**
 - Fixed overlay size calculation using physical pixels instead of scaled logical pixels
-- Proper state synchronization between main app and overlay
 - Split decimal display: main speed prominent, smaller faded decimal fraction
-- Optimized content sizing with improved responsive layout
 - Android SYSTEM_ALERT_WINDOW permissions configured
-- Tap navigation area to show floating window, long-press to close
 
 ## 🔄 REMAINING
 
@@ -51,10 +54,11 @@
 - [ ] Update packages to latest compatible versions  
 
 **Future Features:**
+- [ ] Intelligent caching logic: 2-4 second time windows, cached heading from valid speeds >2 km/h
 - [ ] Desktop widget
 - [ ] Background color customization  
 - [ ] User-defined layout customization
 
-## 🎯 STATUS: v2.2.3-wip Overlay Interactions Partially Fixed
+## 🎯 STATUS: v2.3.0-dev GPS Architecture Complete
 
-Overlay functionality **somewhat working**: first overlay responds to gestures, subsequent overlays display correctly but gesture detection fails. Bidirectional communication between overlay and main app proven unreliable. Status monitoring approach implemented as workaround. Main speedometer fully functional.
+GPS manager architecture implemented and functional. Clean separation of concerns with centralized GPS processing. Overlay functionality preserved from previous version. Ready for intelligent caching logic implementation and merge to master.

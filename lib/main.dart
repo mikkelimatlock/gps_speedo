@@ -361,7 +361,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   }
 
   void _onGpsDataUpdate(ProcessedGpsData gpsData) {
-    print('[Main] 📥 Received GPS data: ${gpsData.displaySpeed} (${_currentUnit.label}), ${gpsData.displayHeading}');
+    print('[Main] 📥 Received GPS data: ${gpsData.speed.toStringAsFixed(1)} m/s, ${gpsData.displayHeading}');
     
     setState(() {
       _currentGpsData = gpsData;
@@ -369,7 +369,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     });
     
     print('[Main] ✅ State updated with GPS data');
-    customDebugPrint('[Main] 📡 GPS data: ${gpsData.displaySpeed} (${_currentUnit.label}), ${gpsData.displayHeading}');
+    final convertedSpeed = _currentUnit.convert(gpsData.speed);
+    customDebugPrint('[Main] 📡 Converted for display: ${convertedSpeed.toStringAsFixed(1)} ${_currentUnit.label}, ${gpsData.displayHeading}');
     
     // Always push display data to overlay if active - critical for background communication
     if (_isOverlayActive) {
@@ -496,9 +497,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   }
   
   String _getSpeedDisplayText(double displaySpeed) {
-    if (_currentGpsData.speed < 1.0 && (_currentGpsData.heading < 0.0 || _currentGpsData.heading >= 360.0)) {
-      return '--';
-    }
+    // TEMPORARILY disabled for indoor testing - show all speeds
+    // TODO: Re-enable: if (_currentGpsData.speed < 1.0 && (_currentGpsData.heading < 0.0 || _currentGpsData.heading >= 360.0)) return '--';
     return displaySpeed.toStringAsFixed(1);
   }
 

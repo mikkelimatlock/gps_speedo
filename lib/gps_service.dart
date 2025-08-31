@@ -10,7 +10,7 @@ class GpsService {
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 0,
-        timeLimit: Duration(milliseconds: 500), // Force updates every 500ms for faster GPS refresh
+        timeLimit: Duration(seconds: 2), // Short timeout for ongoing updates after initial fix
       ),
     );
   }

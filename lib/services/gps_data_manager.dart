@@ -64,19 +64,17 @@ class GpsDataManager {
   // Get current data synchronously (for immediate access)
   ProcessedGpsData get currentData => _currentData;
   
+  bool _isInitialized = false;
+  
   Future<void> initialize() async {
-    print('[GpsDataManager] 🚀 Starting GPS manager initialization...');
-    
-    // Clean up any existing subscription first
-    if (_gpsSubscription != null) {
-      print('[GpsDataManager] 🧹 Cleaning up existing GPS subscription...');
-      await _gpsSubscription?.cancel();
-      _gpsSubscription = null;
-      // Small delay to ensure cleanup completes
-      await Future.delayed(const Duration(milliseconds: 100));
+    if (_isInitialized) {
+      print('[GpsDataManager] ⚠️ Already initialized, skipping...');
+      return;
     }
     
-    // Check GPS permissions and services
+    print('[GpsDataManager] 🚀 Starting GPS manager initialization...');
+    
+    // Check GPS permissions and services first
     final serviceEnabled = await GpsService.isLocationServiceEnabled();
     print('[GpsDataManager] 📍 Location service enabled: $serviceEnabled');
     if (!serviceEnabled) {
@@ -85,6 +83,7 @@ class GpsDataManager {
         displaySpeed: 'GPS OFF',
         displayHeading: 'GPS OFF'
       ));
+      _isInitialized = true; // Mark as initialized even if failed
       return;
     }
     
@@ -96,51 +95,59 @@ class GpsDataManager {
         displaySpeed: 'NO PERM',
         displayHeading: 'NO PERM'
       ));
+      _isInitialized = true; // Mark as initialized even if failed
       return;
     }
     
-    // TEMPORARILY DISABLED: GPS stream due to flutter engine conflict
-    // Start GPS stream with a fresh subscription
-    print('[GpsDataManager] ⚠️ GPS stream temporarily disabled due to engine conflict');
-    // try {
-    //   _gpsSubscription = GpsService.positionStream.listen(
-    //     _onPositionUpdate,
-    //     onError: _onGpsError,
-    //   );
-    //   print('[GpsDataManager] ✅ GPS stream subscription created successfully');
-    // } catch (e) {
-    //   print('[GpsDataManager] ❌ Failed to create GPS subscription: $e');
-    //   _updateData(_currentData.copyWith(
-    //     displaySpeed: 'SUB ERR',
-    //     displayHeading: 'SUB ERR'
-    //   ));
-    //   return;
-    // }
+    // Create GPS stream subscription
+    print('[GpsDataManager] 📡 Creating GPS stream subscription...');
     
-    // TEMPORARY: Add realistic test data to verify full functionality
-    print('[GpsDataManager] 🧪 Starting realistic GPS simulation...');
-    double testSpeed = 0.0;
-    double testHeading = 0.0;
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      // Simulate realistic movement
-      testSpeed += (DateTime.now().millisecondsSinceEpoch % 3 - 1) * 0.5; // Random walk
-      testSpeed = testSpeed.clamp(0.0, 25.0); // 0-90 km/h max
-      testHeading = (testHeading + 1) % 360; // Slow rotation
+    try {
+      print('[GpsDataManager] 🔧 Getting initial GPS position with long timeout...');
       
-      final displaySpeed = testSpeed < 1.0 ? '--' : testSpeed.toStringAsFixed(1);
-      final displayHeading = GpsService.formatHeading(testHeading);
-      
-      final testData = ProcessedGpsData(
-        speed: testSpeed,
-        heading: testHeading,
-        displaySpeed: displaySpeed,
-        displayHeading: displayHeading,
-        isSpeedValid: testSpeed >= 0,
-        isHeadingValid: testHeading >= 0 && testHeading < 360,
+      // First, get initial position with long timeout for cold start
+      final initialPosition = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: Duration(seconds: 20), // Long timeout for initial fix
+        ),
       );
       
-      _updateData(testData);
-    });
+      print('[GpsDataManager] ✅ Initial GPS fix obtained');
+      _onPositionUpdate(initialPosition);
+      
+      // Then start position stream with shorter timeout for updates
+      print('[GpsDataManager] 🔧 Starting GPS stream with short update timeout...');
+      _gpsSubscription = GpsService.positionStream.listen(
+        (Position position) {
+          print('[GpsDataManager] 📥 GPS callback triggered');
+          _onPositionUpdate(position);
+        },
+        onError: (error) {
+          print('[GpsDataManager] ❌ GPS stream error callback: $error');
+          _onGpsError(error);
+        },
+        onDone: () {
+          print('[GpsDataManager] ⚠️ GPS stream done callback - stream ended');
+        },
+        cancelOnError: false,
+      );
+      
+      print('[GpsDataManager] ✅ GPS stream subscription created');
+      print('[GpsDataManager] 🔍 Subscription details: ${_gpsSubscription.runtimeType}');
+      
+      _isInitialized = true;
+      
+    } catch (e, stackTrace) {
+      print('[GpsDataManager] ❌ GPS subscription creation failed: $e');
+      print('[GpsDataManager] 📚 Stack trace: $stackTrace');
+      _updateData(_currentData.copyWith(
+        displaySpeed: 'GPS ERR',
+        displayHeading: 'GPS ERR'
+      ));
+      _isInitialized = true; // Mark as initialized even if failed
+      return;
+    }
     
     print('[GpsDataManager] ✅ GPS manager initialized successfully');
   }
@@ -154,10 +161,9 @@ class GpsDataManager {
     final speed = position.speed;
     final heading = position.heading;
     
-    // Basic display logic (will be enhanced with caching)
-    final displaySpeed = (speed < 1.0 && (heading < 0.0 || heading >= 360.0)) 
-        ? '--' 
-        : speed.toStringAsFixed(1);
+    // Basic display logic - TEMPORARILY show all speeds for indoor testing
+    // TODO: Re-enable low-speed logic later: (speed < 1.0 && (heading < 0.0 || heading >= 360.0)) ? '--' : ...
+    final displaySpeed = speed.toStringAsFixed(1);
     
     final displayHeading = GpsService.formatHeading(heading);
     
@@ -204,7 +210,15 @@ class GpsDataManager {
   }
   
   void dispose() {
-    _gpsSubscription?.cancel();
+    print('[GpsDataManager] 🛑 Disposing GPS manager...');
+    if (_gpsSubscription != null) {
+      print('[GpsDataManager] 🛑 Cancelling GPS subscription...');
+      _gpsSubscription?.cancel();
+      _gpsSubscription = null;
+    }
+    print('[GpsDataManager] 🛑 Closing data controller...');
     _dataController.close();
+    _isInitialized = false;
+    print('[GpsDataManager] 🛑 GPS manager disposed');
   }
 }
