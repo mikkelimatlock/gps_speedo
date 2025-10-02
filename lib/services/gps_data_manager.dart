@@ -58,6 +58,9 @@ class GpsDataManager {
     isHeadingValid: false,
   );
   
+  static const Duration _staleDataThreshold = Duration(seconds: 4);
+  Timer? _staleDataTimer;
+
   // Public stream for UI components to subscribe to
   Stream<ProcessedGpsData> get dataStream => _dataController.stream;
   
@@ -154,30 +157,36 @@ class GpsDataManager {
   
   void _onPositionUpdate(Position position) {
     print('[GpsDataManager] 📡 Raw GPS update: speed=${position.speed.toStringAsFixed(2)} m/s, heading=${position.heading.toStringAsFixed(1)}°');
-    
-    // For now, simple pass-through processing
-    // TODO: Add intelligent caching logic here later
-    
-    final speed = position.speed;
-    final heading = position.heading;
-    
+
+    _scheduleStaleDataTimer();
+
+    final rawSpeed = position.speed;
+    final bool speedValid = rawSpeed.isFinite && rawSpeed >= 0;
+    final double speed = speedValid ? rawSpeed : 0.0;
+
+    final rawHeading = position.heading;
+    final bool headingValid = rawHeading.isFinite && rawHeading >= 0 && rawHeading < 360;
+    final double heading = headingValid ? rawHeading : _currentData.heading;
+
     // Basic display logic - TEMPORARILY show all speeds for indoor testing
     // TODO: Re-enable low-speed logic later: (speed < 1.0 && (heading < 0.0 || heading >= 360.0)) ? '--' : ...
     final displaySpeed = speed.toStringAsFixed(1);
-    
-    final displayHeading = GpsService.formatHeading(heading);
-    
+
+    final displayHeading = headingValid
+        ? GpsService.formatHeading(heading)
+        : _currentData.displayHeading;
+
     print('[GpsDataManager] 🔄 Processed: displaySpeed="$displaySpeed", displayHeading="$displayHeading"');
-    
+
     final processedData = ProcessedGpsData(
       speed: speed,
       heading: heading,
       displaySpeed: displaySpeed,
       displayHeading: displayHeading,
-      isSpeedValid: speed >= 0,
-      isHeadingValid: heading >= 0 && heading < 360,
+      isSpeedValid: speedValid,
+      isHeadingValid: headingValid,
     );
-    
+
     _updateData(processedData);
   }
   
@@ -194,6 +203,34 @@ class GpsDataManager {
     }
   }
   
+  void _scheduleStaleDataTimer() {
+    _staleDataTimer?.cancel();
+    _staleDataTimer = Timer(_staleDataThreshold, _handleStaleDataTimeout);
+  }
+
+  void _handleStaleDataTimeout() {
+    // Avoid overriding explicit GPS error states or repeated stale notifications
+    final displayText = _currentData.displaySpeed;
+    if (displayText == '--' || displayText.startsWith('GPS') || displayText == 'NO PERM') {
+      return;
+    }
+
+    final headingStillValid = _currentData.isHeadingValid && _currentData.heading >= 0 && _currentData.heading < 360;
+    final displayHeading = headingStillValid ? _currentData.displayHeading : '--';
+
+    print('[GpsDataManager] ⏱️ No GPS updates within ${_staleDataThreshold.inSeconds}s - marking data as stale');
+
+    final staleData = _currentData.copyWith(
+      displaySpeed: '--',
+      displayHeading: displayHeading,
+      isSpeedValid: false,
+      isHeadingValid: headingStillValid,
+    );
+
+    _staleDataTimer = null;
+    _updateData(staleData);
+  }
+
   void _updateData(ProcessedGpsData newData) {
     print('[GpsDataManager] 📤 Broadcasting data: ${newData.displaySpeed} ${newData.displayHeading}');
     _currentData = newData;
@@ -217,6 +254,8 @@ class GpsDataManager {
       _gpsSubscription = null;
     }
     print('[GpsDataManager] 🛑 Closing data controller...');
+    _staleDataTimer?.cancel();
+    _staleDataTimer = null;
     _dataController.close();
     _isInitialized = false;
     print('[GpsDataManager] 🛑 GPS manager disposed');
