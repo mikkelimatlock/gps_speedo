@@ -9,14 +9,14 @@ Requirements for the restructure milestone. Each maps to roadmap phases.
 
 ### Code organization
 
-- [ ] **ORG-01**: Code split into directory structure: `screens/`, `widgets/`, `services/`, `providers/`, `models/`, `config/`
-- [ ] **ORG-02**: `ProcessedGpsData` model extracted to `models/processed_gps_data.dart`
-- [ ] **ORG-03**: `SpeedUnit` and `ColorTheme` moved to `config/` directory
-- [ ] **ORG-04**: Constants file created with all magic numbers (timeouts, thresholds, overlay percentages)
-- [ ] **ORG-05**: Typed `OverlayMessage` class replaces unvalidated Map data for overlay communication
-- [ ] **ORG-06**: All unconditional `print()` replaced with `customDebugPrint()` (debug-only logging)
-- [ ] **ORG-07**: `SpeedometerScreen` extracted from monolithic `main.dart` to `screens/speedometer_screen.dart`
-- [ ] **ORG-08**: `OverlaySpeedometer` extracted to `screens/overlay_screen.dart`
+- [x] **ORG-01**: Code split into directory structure: `screens/`, `widgets/`, `services/`, `providers/`, `models/`, `config/`
+- [x] **ORG-02**: `ProcessedGpsData` model extracted to `models/processed_gps_data.dart`
+- [x] **ORG-03**: `SpeedUnit` and `ColorTheme` moved to `config/` directory
+- [x] **ORG-04**: Constants file created with all magic numbers (timeouts, thresholds, overlay percentages)
+- [x] **ORG-05**: Typed `OverlayMessage` class replaces unvalidated Map data for overlay communication
+- [x] **ORG-06**: All unconditional `print()` replaced with Logger utility (debug-only logging with severity levels)
+- [x] **ORG-07**: `SpeedometerScreen` extracted from monolithic `main.dart` to `screens/speedometer_screen.dart`
+- [x] **ORG-08**: `OverlaySpeedometer` extracted to `screens/overlay_screen.dart`
 
 ### State management
 
@@ -98,14 +98,14 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ORG-01 | Phase 1 | Pending |
-| ORG-02 | Phase 1 | Pending |
-| ORG-03 | Phase 1 | Pending |
-| ORG-04 | Phase 1 | Pending |
-| ORG-05 | Phase 1 | Pending |
-| ORG-06 | Phase 1 | Pending |
-| ORG-07 | Phase 1 | Pending |
-| ORG-08 | Phase 1 | Pending |
+| ORG-01 | Phase 1 | Complete |
+| ORG-02 | Phase 1 | Complete |
+| ORG-03 | Phase 1 | Complete |
+| ORG-04 | Phase 1 | Complete |
+| ORG-05 | Phase 1 | Complete |
+| ORG-06 | Phase 1 | Complete |
+| ORG-07 | Phase 1 | Complete |
+| ORG-08 | Phase 1 | Complete |
 | STATE-01 | Phase 2 | Pending |
 | STATE-02 | Phase 2 | Pending |
 | STATE-03 | Phase 2 | Pending |
@@ -140,4 +140,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 after initial definition*
+*Last updated: 2026-02-09 (Phase 1 requirements marked Complete)*
