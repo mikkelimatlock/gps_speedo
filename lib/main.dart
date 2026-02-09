@@ -5,19 +5,15 @@ import 'dart:async';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:bg_launcher/bg_launcher.dart'; // For bringing app to foreground
-import 'speed_units.dart';
-import 'color_themes.dart';
+import 'config/speed_unit.dart';
+import 'config/color_themes.dart';
+import 'config/timing_constants.dart';
+import 'config/overlay_constants.dart';
+import 'models/overlay_message.dart';
+import 'models/processed_gps_data.dart';
 import 'services/gps_data_manager.dart';
+import 'services/logger.dart';
 import 'dart:math' as math; // Import for math.pi
-
-// Global debug configuration (removed - now handled by GPS manager)
-
-// Debug helper - only prints in debug builds
-void customDebugPrint(String message) {
-  if (kDebugMode) {
-    print(message);
-  }
-}
 
 void main() {
   runApp(const SpeedoApp());
@@ -26,7 +22,7 @@ void main() {
 // Entry point for overlay window
 @pragma("vm:entry-point")
 void overlayMain() {
-  customDebugPrint('[Overlay] 🚀 overlayMain() called');
+  Logger.info('overlayMain() called', 'Overlay');
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: OverlaySpeedometer(),
@@ -85,11 +81,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   Map<String, int> _getOverlaySize() {
     final window = WidgetsBinding.instance.platformDispatcher.views.first;
     final physicalSize = window.physicalSize;
-    
+
     // Use actual physical pixels for overlay sizing
-    final overlayWidth = (physicalSize.width * 0.45).round(); // 45% of actual screen width
-    final overlayHeight = (overlayWidth * 0.6).round();
-    
+    final overlayWidth = (physicalSize.width * OverlayConfig.WIDTH_PERCENTAGE).round();
+    final overlayHeight = (overlayWidth * OverlayConfig.ASPECT_RATIO).round();
+
     return {'width': overlayWidth, 'height': overlayHeight};
   }
 
@@ -125,22 +121,22 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                 _tapCloseRequested = true; // Reusing the flag for long press
                 // Set a timer to reset this flag if overlay doesn't close soon
                 _tapCloseTimer?.cancel();
-                _tapCloseTimer = Timer(const Duration(milliseconds: 500), () {
+                _tapCloseTimer = Timer(TimingConfig.TAP_CLOSE_DELAY, () {
                   _tapCloseRequested = false;
                 });
                 break;
               // 'bringToFront' action handler removed per NOTES.txt (tap to bring front functionality disabled)
               default:
-                customDebugPrint('[Main] ⚠️  Unknown overlay action: "$action"');
+                Logger.warn('Unknown overlay action: "$action"', 'Main');
             }
           }
         } catch (e, stackTrace) {
-          customDebugPrint('[Main] ❌ Error processing overlay message: $e');
-          customDebugPrint('[Main] 📚 Stack trace: $stackTrace');
+          Logger.error('Error processing overlay message: $e', 'Main');
+          Logger.error('Stack trace: $stackTrace', 'Main');
         }
       },
       onError: (error) {
-        customDebugPrint('[Main] ❌ Overlay listener error: $error');
+        Logger.error('Overlay listener error: $error', 'Main');
       },
     );
   }
@@ -154,7 +150,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     // Cancel any existing timer first
     _overlayStatusCheckTimer?.cancel();
     
-    _overlayStatusCheckTimer = Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
+    _overlayStatusCheckTimer = Timer.periodic(TimingConfig.OVERLAY_STATUS_CHECK_INTERVAL, (timer) async {
       if (_isOverlayActive) {
         try {
           final isActive = await FlutterOverlayWindow.isActive();
@@ -163,14 +159,14 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
             _handleOverlayClose();
           }
         } catch (e) {
-          customDebugPrint('[Main] ❌ Overlay status check failed: $e');
+          Logger.error('Overlay status check failed: $e', 'Main');
         }
       } else {
         // If overlay is not supposed to be active, cancel the timer
         timer.cancel();
       }
     });
-    customDebugPrint('[Main] 🔍 Started overlay status monitoring');
+    Logger.debug('Started overlay status monitoring', 'Main');
   }
 
   void _handleOverlayClose({bool bringToForeground = false}) {
@@ -196,7 +192,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   
   void _startBackgroundHeartbeat() {
     // Aggressive heartbeat to keep main app process active for overlay communication
-    _backgroundHeartbeatTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _backgroundHeartbeatTimer = Timer.periodic(TimingConfig.HEARTBEAT_INTERVAL, (timer) {
       if (_isInBackground && _isOverlayActive) {
         // Minimal activity to prevent hibernation
         if (mounted) {
@@ -231,8 +227,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         });
       }
     } catch (e) {
-      customDebugPrint('[Main] ❌ BgLauncher failed to bring app to front: $e');
-      
+      Logger.error('BgLauncher failed to bring app to front: $e', 'Main');
+
       // Enhanced fallback: try alternative approach
       try {
         if (mounted) {
@@ -241,7 +237,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           });
         }
       } catch (fallbackError) {
-        customDebugPrint('[Main] ❌ Fallback method also failed: $fallbackError');
+        Logger.error('Fallback method also failed: $fallbackError', 'Main');
       }
     }
   }
@@ -254,11 +250,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       
       // Double-check wake lock status for debugging
       if (!isEnabled) {
-        customDebugPrint('[Main] ⚠️  Wake lock not properly enabled, retrying...');
+        Logger.warn('Wake lock not properly enabled, retrying...', 'Main');
         await WakelockPlus.enable();
       }
     } catch (e) {
-      customDebugPrint('[Main] ❌ Wake lock failed: $e');
+      Logger.error('Wake lock failed: $e', 'Main');
       // Wake lock not supported on this platform, continue normally
     }
   }
@@ -272,7 +268,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     _overlayStatusCheckTimer?.cancel();
     _tapCloseTimer?.cancel();
     WakelockPlus.disable();
-    customDebugPrint('[Main] 🛑 Main app disposed - all subscriptions and timers canceled');
+    Logger.info('Main app disposed - all subscriptions and timers canceled', 'Main');
     super.dispose();
   }
 
@@ -316,66 +312,66 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       // Note: This requires platform-specific implementation which we'd need to add via method channel
       // For now, we'll rely on other persistence mechanisms
     } catch (e) {
-      customDebugPrint('[Main] ⚠️  Battery optimization exemption not available: $e');
+      Logger.warn('Battery optimization exemption not available: $e', 'Main');
     }
   }
-  
+
   Future<void> _ensureOverlayPermission() async {
     try {
       // Check if overlay permission is granted (required for bg_launcher to work properly)
       final isGranted = await FlutterOverlayWindow.isPermissionGranted();
-      
+
       if (!isGranted) {
         await FlutterOverlayWindow.requestPermission();
       }
     } catch (e) {
-      customDebugPrint('[Main] ❌ Error checking overlay permission: $e');
+      Logger.error('Error checking overlay permission: $e', 'Main');
     }
   }
 
   Future<void> _initializeGpsManager() async {
-    print('[Main] 🚀 Starting GPS manager initialization...');
+    Logger.info('Starting GPS manager initialization...', 'Main');
     try {
       // Initialize the GPS manager
-      print('[Main] 📡 Calling GpsDataManager.instance.initialize()...');
+      Logger.debug('Calling GpsDataManager.instance.initialize()...', 'Main');
       await GpsDataManager.instance.initialize();
-      print('[Main] ✅ GPS manager initialization completed');
-      
+      Logger.info('GPS manager initialization completed', 'Main');
+
       // Subscribe to processed GPS data
-      print('[Main] 🎧 Setting up data stream subscription...');
+      Logger.debug('Setting up data stream subscription...', 'Main');
       _gpsDataSubscription = GpsDataManager.instance.dataStream.listen(
         _onGpsDataUpdate,
         onError: (error) {
-          print('[Main] ❌ GPS data stream error: $error');
+          Logger.error('GPS data stream error: $error', 'Main');
           setState(() => _errorMessage = 'GPS manager error: $error');
         },
       );
-      print('[Main] ✅ GPS data stream subscription active');
-      
-      customDebugPrint('[Main] 🛰️ GPS manager initialized and subscribed');
+      Logger.info('GPS data stream subscription active', 'Main');
+
+      Logger.info('GPS manager initialized and subscribed', 'Main');
     } catch (e) {
-      print('[Main] ❌ GPS manager initialization exception: $e');
+      Logger.error('GPS manager initialization exception: $e', 'Main');
       setState(() => _errorMessage = 'Failed to initialize GPS manager');
-      customDebugPrint('[Main] ❌ GPS manager initialization failed: $e');
+      Logger.error('GPS manager initialization failed: $e', 'Main');
     }
   }
 
   void _onGpsDataUpdate(ProcessedGpsData gpsData) {
-    print('[Main] 📥 Received GPS data: ${gpsData.speed.toStringAsFixed(1)} m/s, ${gpsData.displayHeading}');
-    
+    Logger.debug('Received GPS data: ${gpsData.speed.toStringAsFixed(1)} m/s, ${gpsData.displayHeading}', 'Main');
+
     setState(() {
       _currentGpsData = gpsData;
       _errorMessage = '';
     });
-    
-    print('[Main] ✅ State updated with GPS data');
+
+    Logger.debug('State updated with GPS data', 'Main');
     final convertedSpeed = _currentUnit.convert(gpsData.speed);
-    customDebugPrint('[Main] 📡 Converted for display: ${convertedSpeed.toStringAsFixed(1)} ${_currentUnit.label}, ${gpsData.displayHeading}');
-    
+    Logger.debug('Converted for display: ${convertedSpeed.toStringAsFixed(1)} ${_currentUnit.label}, ${gpsData.displayHeading}', 'Main');
+
     // Always push display data to overlay if active - critical for background communication
     if (_isOverlayActive) {
       _pushDataToOverlay();
-      customDebugPrint('[Main] 📤 Data pushed to overlay from GPS update');
+      Logger.debug('Data pushed to overlay from GPS update', 'Main');
     }
   }
   
@@ -383,32 +379,31 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   void _pushDataToOverlay() {
     // Only push data if overlay is actually active (listener check was causing race conditions)
     if (!_isOverlayActive) {
-      customDebugPrint('[Main] 🚫 Skipping data push - no active overlay (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})');
+      Logger.debug('Skipping data push - no active overlay (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})', 'Main');
       return;
     }
-    
-    customDebugPrint('[Main] ✅ Overlay guard passed - pushing data (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})');
-    
+
+    Logger.debug('Overlay guard passed - pushing data (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})', 'Main');
+
     // Get formatted speed for current unit from GPS manager
     final speedText = GpsDataManager.instance.getFormattedSpeed(_currentUnit);
     final unitText = _currentUnit.label.toString();
     final headingText = _currentGpsData.displayHeading;
-    
-    customDebugPrint('[Main] 📤 SENDING to overlay:');
-    customDebugPrint('  speedText: "$speedText"');
-    customDebugPrint('  headingText: "$headingText"');
-    customDebugPrint('  direction: ${_currentGpsData.heading.toStringAsFixed(1)}°');
-    customDebugPrint('  unit: $unitText, theme: $_currentThemeIndex');
-    
-    FlutterOverlayWindow.shareData({
-      'action': 'updateDisplay',
-      'speedText': speedText,
-      'unitText': unitText,
-      'headingText': headingText,
-      'heading': _currentGpsData.heading,
-      'unitIndex': _currentUnit.index,
-      'themeIndex': _currentThemeIndex,
-    });
+
+    Logger.debug('SENDING to overlay:', 'Main');
+    Logger.debug('  speedText: "$speedText"', 'Main');
+    Logger.debug('  headingText: "$headingText"', 'Main');
+    Logger.debug('  direction: ${_currentGpsData.heading.toStringAsFixed(1)}°', 'Main');
+    Logger.debug('  unit: $unitText, theme: $_currentThemeIndex', 'Main');
+
+    FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
+      speedText: speedText,
+      unitText: unitText,
+      headingText: headingText,
+      heading: _currentGpsData.heading,
+      unitIndex: _currentUnit.index,
+      themeIndex: _currentThemeIndex,
+    ).toMap());
   }
 
   void _cycleUnit() {
@@ -437,17 +432,18 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
       // Send initial display data WITH size info (only needed on creation)
       final speedText = GpsDataManager.instance.getFormattedSpeed(_currentUnit);
       final headingText = _currentGpsData.displayHeading;
-      
-      await FlutterOverlayWindow.shareData({
-        'action': 'updateDisplay',
-        'speedText': speedText,
-        'headingText': headingText,
-        'heading': _currentGpsData.heading,
-        'unitIndex': _currentUnit.index,
-        'themeIndex': _currentThemeIndex,
-        'overlayWidth': overlaySize['width']!.toDouble(),
-        'overlayHeight': overlaySize['height']!.toDouble(),
-      });
+      final unitText = _currentUnit.label.toString();
+
+      await FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
+        speedText: speedText,
+        unitText: unitText,
+        headingText: headingText,
+        heading: _currentGpsData.heading,
+        unitIndex: _currentUnit.index,
+        themeIndex: _currentThemeIndex,
+        overlayWidth: overlaySize['width']!.toDouble(),
+        overlayHeight: overlaySize['height']!.toDouble(),
+      ).toMap());
 
       // Show the overlay with proportional sizing based on system resolution
       await FlutterOverlayWindow.showOverlay(
@@ -462,11 +458,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         height: overlaySize['height']!,
       );
       
-      customDebugPrint('[Main] 🟢 OVERLAY LAUNCHED - Size: ${overlaySize['width']}x${overlaySize['height']}');
-      
+      Logger.info('OVERLAY LAUNCHED - Size: ${overlaySize['width']}x${overlaySize['height']}', 'Main');
+
       // Set overlay active immediately and synchronously
       _isOverlayActive = true;
-      customDebugPrint('[Main] ✅ _isOverlayActive set to: $_isOverlayActive');
+      Logger.debug('_isOverlayActive set to: $_isOverlayActive', 'Main');
       
       // Start listening to overlay messages after state is set
       _startListeningToOverlayMessages();
@@ -483,16 +479,16 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   Future<void> _closeFloatingWindow() async {
     if (!_isOverlayActive) {
-      customDebugPrint('[Main] ⚠️  No overlay to close');
+      Logger.warn('No overlay to close', 'Main');
       return;
     }
-    
+
     try {
       await FlutterOverlayWindow.closeOverlay();
-      customDebugPrint('[Main] 🔴 OVERLAY CLOSED - Requested from main app');
+      Logger.info('OVERLAY CLOSED - Requested from main app', 'Main');
       _handleOverlayClose(); // This will set _isOverlayActive = false and stop listener
     } catch (e) {
-      customDebugPrint('[Main] ❌ Error closing overlay: $e');
+      Logger.error('Error closing overlay: $e', 'Main');
     }
   }
   
@@ -647,7 +643,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              customDebugPrint('[Main] 🖱️  Navigation area tapped - overlay active: $_isOverlayActive');
+              Logger.debug('Navigation area tapped - overlay active: $_isOverlayActive', 'Main');
               if (_isOverlayActive) {
                 _closeFloatingWindow();
               } else {
@@ -655,7 +651,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               }
             },
             onLongPress: () {
-              customDebugPrint('[Main] 🖱️  Navigation area long-pressed - overlay active: $_isOverlayActive');
+              Logger.debug('Navigation area long-pressed - overlay active: $_isOverlayActive', 'Main');
               _closeFloatingWindow();
             },
             child: Container(
@@ -774,7 +770,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              customDebugPrint('[Main] 🖱️  Navigation area tapped (landscape) - overlay active: $_isOverlayActive');
+              Logger.debug('Navigation area tapped (landscape) - overlay active: $_isOverlayActive', 'Main');
               if (_isOverlayActive) {
                 _closeFloatingWindow();
               } else {
@@ -782,7 +778,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               }
             },
             onLongPress: () {
-              customDebugPrint('[Main] 🖱️  Navigation area long-pressed (landscape) - overlay active: $_isOverlayActive');
+              Logger.debug('Navigation area long-pressed (landscape) - overlay active: $_isOverlayActive', 'Main');
               _closeFloatingWindow();
             },
             child: Container(
@@ -856,14 +852,14 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
   @override
   void initState() {
     super.initState();
-    customDebugPrint('[Overlay] 🟢 CREATED - Floating window initialized (${DateTime.now().millisecondsSinceEpoch})');
+    Logger.info('CREATED - Floating window initialized (${DateTime.now().millisecondsSinceEpoch})', 'Overlay');
     _getSystemScreenSize();
     _listenToMainAppMessages();
   }
   
   @override
   void dispose() {
-    customDebugPrint('[Overlay] 🔴 DISPOSING - Overlay widget disposed (${DateTime.now().millisecondsSinceEpoch})');
+    Logger.info('DISPOSING - Overlay widget disposed (${DateTime.now().millisecondsSinceEpoch})', 'Overlay');
     super.dispose();
   }
 
@@ -875,53 +871,53 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
       final devicePixelRatio = window.devicePixelRatio;
       final systemSize = physicalSize / devicePixelRatio;
       
-      customDebugPrint('[Overlay] 🔍 Screen detection:');
-      customDebugPrint('  physicalSize: ${physicalSize.width.round()}x${physicalSize.height.round()}');
-      customDebugPrint('  devicePixelRatio: $devicePixelRatio');
-      customDebugPrint('  calculated systemSize: ${systemSize.width.round()}x${systemSize.height.round()}');
-      
+      Logger.debug('Screen detection:', 'Overlay');
+      Logger.debug('  physicalSize: ${physicalSize.width.round()}x${physicalSize.height.round()}', 'Overlay');
+      Logger.debug('  devicePixelRatio: $devicePixelRatio', 'Overlay');
+      Logger.debug('  calculated systemSize: ${systemSize.width.round()}x${systemSize.height.round()}', 'Overlay');
+
       setState(() {
         _systemScreenWidth = systemSize.width;
       });
-      
-      customDebugPrint('[Overlay] ✅ _systemScreenWidth set to: ${_systemScreenWidth.round()}');
+
+      Logger.debug('_systemScreenWidth set to: ${_systemScreenWidth.round()}', 'Overlay');
     } catch (e) {
-      customDebugPrint('[Overlay] ❌ Error getting system screen size: $e');
+      Logger.error('Error getting system screen size: $e', 'Overlay');
       // Fallback to reasonable default
       setState(() {
-        _systemScreenWidth = 400;
+        _systemScreenWidth = OverlayConfig.DEFAULT_SCREEN_WIDTH;
       });
     }
   }
 
   void _listenToMainAppMessages() {
     FlutterOverlayWindow.overlayListener.listen((data) {
-      if (data is Map && data['action'] == 'updateDisplay') {
-        setState(() {
-          _speedText = data['speedText'] ?? '--';
-          _unitText = data['unitText'];
-          _headingText = data['headingText'] ?? 'N/A';
-          _heading = data['heading']?.toDouble() ?? -1.0;
-          _currentThemeIndex = data['themeIndex'] ?? 0;
-          // Update screen size and overlay dimensions if provided by main app
-          if (data.containsKey('systemScreenWidth')) {
-            _systemScreenWidth = data['systemScreenWidth']?.toDouble() ?? _systemScreenWidth;
-          }
-          if (data.containsKey('overlayWidth')) {
-            _overlayWidth = data['overlayWidth']?.toDouble() ?? _overlayWidth;
-          }
-          if (data.containsKey('overlayHeight')) {
-            _overlayHeight = data['overlayHeight']?.toDouble() ?? _overlayHeight;
-          }
-        });
-        
-        customDebugPrint('[Overlay] 📡 UPDATE received:');
-        customDebugPrint('  speedText: "$_speedText"');
-        customDebugPrint('  headingText: "$_headingText"'); 
-        customDebugPrint('  direction: ${_heading.toStringAsFixed(1)}°');
-        customDebugPrint('  themeIndex: $_currentThemeIndex');
-        customDebugPrint('  systemScreenWidth: ${_systemScreenWidth.round()}');
-        customDebugPrint('  overlaySize from main: ${_overlayWidth.round()}x${_overlayHeight.round()}');
+      if (data is Map) {
+        final message = OverlayMessage.fromMap(data);
+        if (message.action == 'updateDisplay') {
+          setState(() {
+            _speedText = message.speedText ?? '--';
+            _unitText = message.unitText ?? '';
+            _headingText = message.headingText ?? 'N/A';
+            _heading = message.heading ?? -1.0;
+            _currentThemeIndex = message.themeIndex ?? 0;
+            // Update overlay dimensions if provided by main app
+            if (message.overlayWidth != null) {
+              _overlayWidth = message.overlayWidth!;
+            }
+            if (message.overlayHeight != null) {
+              _overlayHeight = message.overlayHeight!;
+            }
+          });
+
+          Logger.debug('UPDATE received:', 'Overlay');
+          Logger.debug('  speedText: "$_speedText"', 'Overlay');
+          Logger.debug('  headingText: "$_headingText"', 'Overlay');
+          Logger.debug('  direction: ${_heading.toStringAsFixed(1)}°', 'Overlay');
+          Logger.debug('  themeIndex: $_currentThemeIndex', 'Overlay');
+          Logger.debug('  systemScreenWidth: ${_systemScreenWidth.round()}', 'Overlay');
+          Logger.debug('  overlaySize from main: ${_overlayWidth.round()}x${_overlayHeight.round()}', 'Overlay');
+        }
       }
     });
   }
@@ -933,10 +929,10 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
     final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
     
     // Use overlay dimensions provided by main app (not calculated locally)
-    final fontSize = (_overlayWidth * 0.2); // Font size proportional to actual overlay width
-    
-    customDebugPrint('[Overlay] 🔨 Building overlay widget ($buildTimestamp)');
-    customDebugPrint('[Overlay] 📐 Window size: ${_overlayWidth.round()}x${_overlayHeight.round()}, fontSize: ${fontSize.round()}');
+    final fontSize = (_overlayWidth * OverlayConfig.FONT_SIZE_RATIO);
+
+    Logger.debug('Building overlay widget ($buildTimestamp)', 'Overlay');
+    Logger.debug('Window size: ${_overlayWidth.round()}x${_overlayHeight.round()}, fontSize: ${fontSize.round()}', 'Overlay');
 
     return Material(
       color: Colors.transparent,
@@ -946,10 +942,10 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
         height: double.infinity,
         child: Container(
           decoration: BoxDecoration(
-            color: currentTheme.background.withValues(alpha: 0.85),
+            color: currentTheme.background.withValues(alpha: OverlayConfig.BACKGROUND_OPACITY),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: currentTheme.speedText.withValues(alpha: 0.3), 
+              color: currentTheme.speedText.withValues(alpha: OverlayConfig.BORDER_OPACITY), 
               width: 1
             ),
           ),
@@ -989,7 +985,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                 child: Text(
                                   _unitText,
                                   style: TextStyle(
-                                    fontSize: fontSize * 0.6,
+                                    fontSize: fontSize * OverlayConfig.UNIT_FONT_RATIO,
                                     fontWeight: FontWeight.w300,
                                     color: currentTheme.unitText,
                                     fontFamily: 'DIN1451Alt',
@@ -1018,7 +1014,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                 fit: BoxFit.contain,
                                 child: Icon(
                                   Icons.navigation,
-                                  size: fontSize * 0.72,
+                                  size: fontSize * OverlayConfig.ICON_SIZE_RATIO,
                                   color: currentTheme.headingText,
                                 ),
                               ),
@@ -1031,7 +1027,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                               child: Text(
                                 _headingText,
                                 style: TextStyle(
-                                  fontSize: fontSize * 0.4,
+                                  fontSize: fontSize * OverlayConfig.HEADING_FONT_RATIO,
                                   color: currentTheme.headingText,
                                   fontFamily: 'DIN1451Alt',
                                 ),
@@ -1049,43 +1045,41 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent, // Ensure gestures are captured
                   onPanStart: (details) {
-                    customDebugPrint('[Overlay] 🖐️ Pan start detected - gestures are working!');
+                    Logger.debug('Pan start detected - gestures are working!', 'Overlay');
                   },
                   onLongPress: () async {
                     final timestamp = DateTime.now().millisecondsSinceEpoch;
-                    customDebugPrint('[Overlay] 🔴 Long press detected - closing overlay and bringing main app to front ($timestamp)');
+                    Logger.info('Long press detected - closing overlay and bringing main app to front ($timestamp)', 'Overlay');
                     try {
                       // Skip haptic feedback in overlay - platform services not available
-                      customDebugPrint('[Overlay] 📳 Skipping haptic feedback (overlay context limitation)');
-                      
+                      Logger.debug('Skipping haptic feedback (overlay context limitation)', 'Overlay');
+
                       // Signal main app to bring to foreground when overlay closes (non-blocking)
-                      customDebugPrint('[Overlay] 📤 Sending bring-to-front close signal...');
-                      FlutterOverlayWindow.shareData({
-                        'action': 'longPressClose',
-                      }).then((_) {
-                        customDebugPrint('[Overlay] ✅ Long press close signal sent successfully');
+                      Logger.debug('Sending bring-to-front close signal...', 'Overlay');
+                      FlutterOverlayWindow.shareData(OverlayMessage.longPressClose().toMap()).then((_) {
+                        Logger.debug('Long press close signal sent successfully', 'Overlay');
                       }).catchError((error) {
-                        customDebugPrint('[Overlay] ❌ Long press close signal failed (expected): $error');
+                        Logger.warn('Long press close signal failed (expected): $error', 'Overlay');
                       });
-                      
+
                       // Small delay to give signal a chance
-                      await Future.delayed(const Duration(milliseconds: 50));
-                      
+                      await Future.delayed(TimingConfig.LONG_PRESS_SIGNAL_DELAY);
+
                       // Close the overlay
-                      customDebugPrint('[Overlay] 🔴 Attempting to close overlay...');
+                      Logger.info('Attempting to close overlay...', 'Overlay');
                       await FlutterOverlayWindow.closeOverlay();
-                      customDebugPrint('[Overlay] ✅ Overlay closed successfully via long press');
-                      
+                      Logger.info('Overlay closed successfully via long press', 'Overlay');
+
                     } catch (e, stackTrace) {
-                      customDebugPrint('[Overlay] ❌ Long press close failed: $e');
-                      customDebugPrint('[Overlay] 📚 Stack trace: $stackTrace');
+                      Logger.error('Long press close failed: $e', 'Overlay');
+                      Logger.error('Stack trace: $stackTrace', 'Overlay');
                       // Fallback: try to close anyway
                       try {
-                        customDebugPrint('[Overlay] 🔄 Attempting fallback close...');
+                        Logger.debug('Attempting fallback close...', 'Overlay');
                         await FlutterOverlayWindow.closeOverlay();
-                        customDebugPrint('[Overlay] ✅ Fallback close succeeded');
+                        Logger.info('Fallback close succeeded', 'Overlay');
                       } catch (fallbackError) {
-                        customDebugPrint('[Overlay] ❌ Fallback close also failed: $fallbackError');
+                        Logger.error('Fallback close also failed: $fallbackError', 'Overlay');
                       }
                     }
                   },
