@@ -34,10 +34,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Debug logging uses customDebugPrint instead of unconditional print statements
   5. App compiles and runs with identical functionality after reorganization
 
-**Plans**: TBD (1-2 plans expected)
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: [To be planned]
+- [ ] 01-01-PLAN.md — Infrastructure, Logger, Constants, Models extraction
+- [ ] 01-02-PLAN.md — Screen extraction (SpeedometerScreen + OverlaySpeedometer)
 
 ### Phase 2: Provider Migration
 
@@ -109,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/2 | Planned | - |
 | 2. Provider Migration | 0/TBD | Not started | - |
 | 3. Overlay Refactor | 0/TBD | Not started | - |
 | 4. GPS & Power Optimization | 0/TBD | Not started | - |
@@ -127,4 +128,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 ---
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-09 (Phase 1 planned)*
