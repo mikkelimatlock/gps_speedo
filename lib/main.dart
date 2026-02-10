@@ -1,14 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // For kDebugMode
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/speedometer_screen.dart';
 import 'screens/overlay_screen.dart';
+import 'services/gps_data_manager.dart';
+import 'providers/settings_provider.dart';
+import 'providers/overlay_provider.dart';
 import 'services/logger.dart';
 
-void main() {
-  runApp(const SpeedoApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<SharedPreferences>.value(value: prefs),
+        ChangeNotifierProvider(
+          create: (context) => SettingsProvider(context.read<SharedPreferences>()),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => GpsDataManager(),
+        ),
+        ChangeNotifierProxyProvider2<GpsDataManager, SettingsProvider, OverlayProvider>(
+          create: (_) => OverlayProvider(),
+          update: (_, gpsManager, settings, overlay) => overlay!
+            ..updateDependencies(
+              gpsManager: gpsManager,
+              currentUnit: settings.currentUnit,
+              currentThemeIndex: settings.currentThemeIndex,
+            ),
+        ),
+      ],
+      child: const SpeedoApp(),
+    ),
+  );
 }
 
-// Entry point for overlay window
 @pragma("vm:entry-point")
 void overlayMain() {
   Logger.info('overlayMain() called', 'Overlay');
@@ -19,9 +47,7 @@ void overlayMain() {
 }
 
 class SpeedoApp extends StatelessWidget {
-  final bool isOverlayMode;
-  
-  const SpeedoApp({super.key, this.isOverlayMode = false});
+  const SpeedoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +59,7 @@ class SpeedoApp extends StatelessWidget {
         brightness: Brightness.dark,
         colorSchemeSeed: Colors.green,
       ),
-      home: SpeedometerScreen(isOverlayMode: isOverlayMode),
+      home: const SpeedometerScreen(),
     );
   }
 }
