@@ -56,10 +56,11 @@ Plans:
   5. All timers and stream subscriptions properly canceled in dispose
   6. App runs without "setState after dispose" or "ChangeNotifier after dispose" errors
 
-**Plans**: TBD (2-3 plans expected)
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: [To be planned]
+- [ ] 02-01-PLAN.md — Create providers (GpsDataManager ChangeNotifier + SettingsProvider + OverlayProvider) and add dependencies
+- [ ] 02-02-PLAN.md — Wire MultiProvider in main.dart and migrate SpeedometerScreen to Consumer/Selector
 
 ### Phase 3: Overlay Refactor
 
