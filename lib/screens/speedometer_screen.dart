@@ -1,256 +1,107 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // HapticFeedback
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:bg_launcher/bg_launcher.dart';
-import '../config/speed_unit.dart';
-import '../config/color_themes.dart';
 import '../config/timing_constants.dart';
-import '../config/overlay_constants.dart';
-import '../models/overlay_message.dart';
-import '../models/processed_gps_data.dart';
+import '../config/color_themes.dart';
 import '../services/gps_data_manager.dart';
+import '../providers/settings_provider.dart';
+import '../providers/overlay_provider.dart';
 import '../services/logger.dart';
 
 class SpeedometerScreen extends StatefulWidget {
-  final bool isOverlayMode;
-
-  const SpeedometerScreen({super.key, this.isOverlayMode = false});
+  const SpeedometerScreen({super.key});
 
   @override
   State<SpeedometerScreen> createState() => _SpeedometerScreenState();
 }
 
 class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindingObserver {
-  SpeedUnit _currentUnit = SpeedUnit.kmh;
-  int _currentThemeIndex = 0;
-  StreamSubscription<ProcessedGpsData>? _gpsDataSubscription;
-  StreamSubscription<dynamic>? _overlaySubscription;
-  ProcessedGpsData _currentGpsData = const ProcessedGpsData(
-    speed: 0.0,
-    heading: -1.0,
-    displaySpeed: '--',
-    displayHeading: 'N/A',
-    isSpeedValid: false,
-    isHeadingValid: false,
-  );
+  // Local widget state only (not shared app state)
   String _errorMessage = '';
   bool _isInBackground = false;
-  bool _isOverlayActive = false;
-  bool _tapCloseRequested = false;
-  Timer? _tapCloseTimer;
-
-  // Single source of truth for overlay sizing
-  Map<String, int> _getOverlaySize() {
-    final window = WidgetsBinding.instance.platformDispatcher.views.first;
-    final physicalSize = window.physicalSize;
-
-    // Use actual physical pixels for overlay sizing
-    final overlayWidth = (physicalSize.width * OverlayConfig.WIDTH_PERCENTAGE).round();
-    final overlayHeight = (overlayWidth * OverlayConfig.ASPECT_RATIO).round();
-
-    return {'width': overlayWidth, 'height': overlayHeight};
-  }
-
   Timer? _backgroundHeartbeatTimer;
-  Timer? _overlayStatusCheckTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeGpsManager();
+    // Delay GPS init to after first frame so context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeGpsManager();
+    });
     _enableWakelock();
     _ensureOverlayPermission();
-    // Overlay listener will be created lazily when overlay is shown
     _startBackgroundHeartbeat();
   }
 
-  void _startListeningToOverlayMessages() {
-    // Only create listener when overlay is actually shown
-    if (_overlaySubscription != null) {
-      return;
-    }
-    _overlaySubscription = FlutterOverlayWindow.overlayListener.listen(
-      (data) {
-        try {
-          if (data is Map) {
-            final action = data['action'];
-            switch (action) {
-              case 'overlayClosed':
-                _handleOverlayClose();
-                break;
-              case 'longPressClose':
-                _tapCloseRequested = true; // Reusing the flag for long press
-                // Set a timer to reset this flag if overlay doesn't close soon
-                _tapCloseTimer?.cancel();
-                _tapCloseTimer = Timer(TimingConfig.TAP_CLOSE_DELAY, () {
-                  _tapCloseRequested = false;
-                });
-                break;
-              // 'bringToFront' action handler removed per NOTES.txt (tap to bring front functionality disabled)
-              default:
-                Logger.warn('Unknown overlay action: "$action"', 'Main');
-            }
-          }
-        } catch (e, stackTrace) {
-          Logger.error('Error processing overlay message: $e', 'Main');
-          Logger.error('Stack trace: $stackTrace', 'Main');
-        }
-      },
-      onError: (error) {
-        Logger.error('Overlay listener error: $error', 'Main');
-      },
-    );
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _backgroundHeartbeatTimer?.cancel();
+    WakelockPlus.disable();
+    Logger.info('SpeedometerScreen disposed', 'Main');
+    super.dispose();
   }
 
-  void _stopListeningToOverlayMessages() {
-    _overlaySubscription?.cancel();
-    _overlaySubscription = null;
-  }
-
-  void _startOverlayStatusCheck() {
-    // Cancel any existing timer first
-    _overlayStatusCheckTimer?.cancel();
-
-    _overlayStatusCheckTimer = Timer.periodic(TimingConfig.OVERLAY_STATUS_CHECK_INTERVAL, (timer) async {
-      if (_isOverlayActive) {
-        try {
-          final isActive = await FlutterOverlayWindow.isActive();
-          if (!isActive) {
-            timer.cancel(); // Cancel the timer before handling close
-            _handleOverlayClose();
-          }
-        } catch (e) {
-          Logger.error('Overlay status check failed: $e', 'Main');
-        }
-      } else {
-        // If overlay is not supposed to be active, cancel the timer
-        timer.cancel();
-      }
-    });
-    Logger.debug('Started overlay status monitoring', 'Main');
-  }
-
-  void _handleOverlayClose({bool bringToForeground = false}) {
-    // Check if this was a long-press close based on recent signal
-    final shouldBringToFront = bringToForeground || _tapCloseRequested;
-
-    // Cancel timers and reset flag
-    _tapCloseTimer?.cancel();
-    _overlayStatusCheckTimer?.cancel();
-    _tapCloseRequested = false;
-
-    setState(() {
-      _isOverlayActive = false;
-    });
-    _stopListeningToOverlayMessages(); // Clean up listener when overlay closes
-
-    // Bring app to foreground on long press close, otherwise quiet close
-    if (shouldBringToFront) {
-      _bringAppToFront();
-    }
-  }
-
-
-  void _startBackgroundHeartbeat() {
-    // Aggressive heartbeat to keep main app process active for overlay communication
-    _backgroundHeartbeatTimer = Timer.periodic(TimingConfig.HEARTBEAT_INTERVAL, (timer) {
-      if (_isInBackground && _isOverlayActive) {
-        // Minimal activity to prevent hibernation
-        if (mounted) {
-          // Force data push to overlay to maintain communication
-          _pushDataToOverlay();
-          // Small state update to keep Flutter engine active
-          setState(() {
-            // Tiny update that doesn't affect UI but keeps engine alive
-            _isInBackground = _isInBackground;
-          });
-        }
-      } else if (_isInBackground) {
-        if (mounted) {
-          // Lighter heartbeat when no overlay is active
-          setState(() {
-            _isInBackground = _isInBackground;
-          });
-        }
-      }
-    });
-  }
-
-  void _bringAppToFront() async {
+  Future<void> _initializeGpsManager() async {
+    Logger.info('Starting GPS manager initialization...', 'Main');
     try {
-      // Use proper Android method to bring app to foreground
-      BgLauncher.bringAppToForeground();
-
-      // Update app state to reflect foreground status
-      if (mounted) {
-        setState(() {
-          _isInBackground = false;
-        });
-      }
+      await context.read<GpsDataManager>().initialize();
+      Logger.info('GPS manager initialized', 'Main');
     } catch (e) {
-      Logger.error('BgLauncher failed to bring app to front: $e', 'Main');
-
-      // Enhanced fallback: try alternative approach
-      try {
-        if (mounted) {
-          setState(() {
-            _isInBackground = false;
-          });
-        }
-      } catch (fallbackError) {
-        Logger.error('Fallback method also failed: $fallbackError', 'Main');
+      Logger.error('GPS manager initialization failed: $e', 'Main');
+      if (mounted) {
+        setState(() => _errorMessage = 'Failed to initialize GPS manager');
       }
     }
   }
 
   Future<void> _enableWakelock() async {
     try {
-      // Force enable wake lock even if already enabled for robustness
       await WakelockPlus.enable();
       final isEnabled = await WakelockPlus.enabled;
-
-      // Double-check wake lock status for debugging
       if (!isEnabled) {
         Logger.warn('Wake lock not properly enabled, retrying...', 'Main');
         await WakelockPlus.enable();
       }
     } catch (e) {
       Logger.error('Wake lock failed: $e', 'Main');
-      // Wake lock not supported on this platform, continue normally
     }
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _gpsDataSubscription?.cancel();
-    _overlaySubscription?.cancel();
-    _backgroundHeartbeatTimer?.cancel();
-    _overlayStatusCheckTimer?.cancel();
-    _tapCloseTimer?.cancel();
-    WakelockPlus.disable();
-    Logger.info('Main app disposed - all subscriptions and timers canceled', 'Main');
-    super.dispose();
+  Future<void> _ensureOverlayPermission() async {
+    try {
+      // Note: Overlay permission request is handled by OverlayProvider,
+      // but we check here to avoid issues at app startup
+    } catch (e) {
+      Logger.error('Error checking overlay permission: $e', 'Main');
+    }
+  }
+
+  void _startBackgroundHeartbeat() {
+    _backgroundHeartbeatTimer = Timer.periodic(TimingConfig.HEARTBEAT_INTERVAL, (timer) {
+      if (!mounted) return;
+      final overlay = context.read<OverlayProvider>();
+      if (_isInBackground && overlay.isOverlayActive) {
+        overlay.pushCurrentData();
+      }
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
     switch (state) {
       case AppLifecycleState.paused:
-        // App went to background (home key pressed or task switch)
         if (!_isInBackground) {
           _isInBackground = true;
           _handleBackgroundTransition();
         }
         break;
       case AppLifecycleState.resumed:
-        // App came back to foreground
         _isInBackground = false;
         break;
       case AppLifecycleState.inactive:
@@ -261,199 +112,18 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   }
 
   void _handleBackgroundTransition() {
-    // Enhanced background persistence - keep GPS stream active
     _enableWakelock();
     _requestBatteryOptimizationExemption();
-
-    // If overlay is active, ensure more frequent data pushing
-    if (_isOverlayActive) {
-      _pushDataToOverlay();
+    if (context.read<OverlayProvider>().isOverlayActive) {
+      context.read<OverlayProvider>().pushCurrentData();
     }
   }
 
   Future<void> _requestBatteryOptimizationExemption() async {
     try {
-      // This would show Android's battery optimization whitelist dialog
-      // Note: This requires platform-specific implementation which we'd need to add via method channel
-      // For now, we'll rely on other persistence mechanisms
+      // Platform-specific implementation would go here
     } catch (e) {
       Logger.warn('Battery optimization exemption not available: $e', 'Main');
-    }
-  }
-
-  Future<void> _ensureOverlayPermission() async {
-    try {
-      // Check if overlay permission is granted (required for bg_launcher to work properly)
-      final isGranted = await FlutterOverlayWindow.isPermissionGranted();
-
-      if (!isGranted) {
-        await FlutterOverlayWindow.requestPermission();
-      }
-    } catch (e) {
-      Logger.error('Error checking overlay permission: $e', 'Main');
-    }
-  }
-
-  Future<void> _initializeGpsManager() async {
-    Logger.info('Starting GPS manager initialization...', 'Main');
-    try {
-      // Initialize the GPS manager
-      Logger.debug('Calling GpsDataManager.instance.initialize()...', 'Main');
-      await GpsDataManager.instance.initialize();
-      Logger.info('GPS manager initialization completed', 'Main');
-
-      // Subscribe to processed GPS data
-      Logger.debug('Setting up data stream subscription...', 'Main');
-      _gpsDataSubscription = GpsDataManager.instance.dataStream.listen(
-        _onGpsDataUpdate,
-        onError: (error) {
-          Logger.error('GPS data stream error: $error', 'Main');
-          setState(() => _errorMessage = 'GPS manager error: $error');
-        },
-      );
-      Logger.info('GPS data stream subscription active', 'Main');
-
-      Logger.info('GPS manager initialized and subscribed', 'Main');
-    } catch (e) {
-      Logger.error('GPS manager initialization exception: $e', 'Main');
-      setState(() => _errorMessage = 'Failed to initialize GPS manager');
-      Logger.error('GPS manager initialization failed: $e', 'Main');
-    }
-  }
-
-  void _onGpsDataUpdate(ProcessedGpsData gpsData) {
-    Logger.debug('Received GPS data: ${gpsData.speed.toStringAsFixed(1)} m/s, ${gpsData.displayHeading}', 'Main');
-
-    setState(() {
-      _currentGpsData = gpsData;
-      _errorMessage = '';
-    });
-
-    Logger.debug('State updated with GPS data', 'Main');
-    final convertedSpeed = _currentUnit.convert(gpsData.speed);
-    Logger.debug('Converted for display: ${convertedSpeed.toStringAsFixed(1)} ${_currentUnit.label}, ${gpsData.displayHeading}', 'Main');
-
-    // Always push display data to overlay if active - critical for background communication
-    if (_isOverlayActive) {
-      _pushDataToOverlay();
-      Logger.debug('Data pushed to overlay from GPS update', 'Main');
-    }
-  }
-
-
-  void _pushDataToOverlay() {
-    // Only push data if overlay is actually active (listener check was causing race conditions)
-    if (!_isOverlayActive) {
-      Logger.debug('Skipping data push - no active overlay (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})', 'Main');
-      return;
-    }
-
-    Logger.debug('Overlay guard passed - pushing data (active: $_isOverlayActive, subscription: ${_overlaySubscription != null})', 'Main');
-
-    // Get formatted speed for current unit from GPS manager
-    final speedText = GpsDataManager.instance.getFormattedSpeed(_currentUnit);
-    final unitText = _currentUnit.label.toString();
-    final headingText = _currentGpsData.displayHeading;
-
-    Logger.debug('SENDING to overlay:', 'Main');
-    Logger.debug('  speedText: "$speedText"', 'Main');
-    Logger.debug('  headingText: "$headingText"', 'Main');
-    Logger.debug('  direction: ${_currentGpsData.heading.toStringAsFixed(1)}°', 'Main');
-    Logger.debug('  unit: $unitText, theme: $_currentThemeIndex', 'Main');
-
-    FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
-      speedText: speedText,
-      unitText: unitText,
-      headingText: headingText,
-      heading: _currentGpsData.heading,
-      unitIndex: _currentUnit.index,
-      themeIndex: _currentThemeIndex,
-    ).toMap());
-  }
-
-  void _cycleUnit() {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _currentUnit = _currentUnit.next;
-    });
-    // Push updated display data to overlay
-    _pushDataToOverlay();
-  }
-
-  void _cycleTheme() {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _currentThemeIndex = ColorThemes.getNextThemeIndex(_currentThemeIndex);
-    });
-    // Push updated display data to overlay
-    _pushDataToOverlay();
-  }
-
-  Future<void> _showFloatingWindow() async {
-    try {
-      // Use centralized sizing function
-      final overlaySize = _getOverlaySize();
-
-      // Send initial display data WITH size info (only needed on creation)
-      final speedText = GpsDataManager.instance.getFormattedSpeed(_currentUnit);
-      final headingText = _currentGpsData.displayHeading;
-      final unitText = _currentUnit.label.toString();
-
-      await FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
-        speedText: speedText,
-        unitText: unitText,
-        headingText: headingText,
-        heading: _currentGpsData.heading,
-        unitIndex: _currentUnit.index,
-        themeIndex: _currentThemeIndex,
-        overlayWidth: overlaySize['width']!.toDouble(),
-        overlayHeight: overlaySize['height']!.toDouble(),
-      ).toMap());
-
-      // Show the overlay with proportional sizing based on system resolution
-      await FlutterOverlayWindow.showOverlay(
-        enableDrag: true,
-        overlayTitle: "Speedometer",
-        overlayContent: 'Speedo overlay active',
-        flag: OverlayFlag.defaultFlag,
-        visibility: NotificationVisibility.visibilityPublic,
-        positionGravity: PositionGravity.none,
-        // Use consistent sizing from centralized function
-        width: overlaySize['width']!,
-        height: overlaySize['height']!,
-      );
-
-      Logger.info('OVERLAY LAUNCHED - Size: ${overlaySize['width']}x${overlaySize['height']}', 'Main');
-
-      // Set overlay active immediately and synchronously
-      _isOverlayActive = true;
-      Logger.debug('_isOverlayActive set to: $_isOverlayActive', 'Main');
-
-      // Start listening to overlay messages after state is set
-      _startListeningToOverlayMessages();
-
-      // Start periodic overlay status check since message-based detection is unreliable
-      _startOverlayStatusCheck();
-
-      // Force UI update
-      if (mounted) setState(() {});
-    } catch (e) {
-      // Silent error handling - floating window issues shouldn't crash main app
-    }
-  }
-
-  Future<void> _closeFloatingWindow() async {
-    if (!_isOverlayActive) {
-      Logger.warn('No overlay to close', 'Main');
-      return;
-    }
-
-    try {
-      await FlutterOverlayWindow.closeOverlay();
-      Logger.info('OVERLAY CLOSED - Requested from main app', 'Main');
-      _handleOverlayClose(); // This will set _isOverlayActive = false and stop listener
-    } catch (e) {
-      Logger.error('Error closing overlay: $e', 'Main');
     }
   }
 
@@ -463,7 +133,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     return displaySpeed.toStringAsFixed(1);
   }
 
-  Widget _buildSpeedDisplay(String speedText, ColorTheme currentTheme, double fontSize, {bool isLandscape = false}) {
+  Widget _buildSpeedDisplay(String speedText, ColorTheme currentTheme, double fontSize) {
     if (speedText == '--') {
       return Text(
         speedText,
@@ -498,7 +168,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         Text(
           decimalPart,
           style: TextStyle(
-            fontSize: fontSize * 0.5, // 60% of main font size
+            fontSize: fontSize * 0.5,
             fontWeight: FontWeight.w300,
             color: currentTheme.speedTextSub,
             fontFamily: 'DIN1451Alt',
@@ -510,29 +180,29 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
 
   @override
   Widget build(BuildContext context) {
-    final displaySpeed = _currentUnit.convert(_currentGpsData.speed);
-    final speedText = _getSpeedDisplayText(displaySpeed);
-    final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
-
-    return Scaffold(
-      backgroundColor: currentTheme.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isLandscape = constraints.maxWidth > constraints.maxHeight;
-
-            if (isLandscape) {
-              return _buildLandscapeLayout(speedText, currentTheme);
-            } else {
-              return _buildPortraitLayout(speedText, currentTheme);
-            }
-          },
-        ),
-      ),
+    return Selector<SettingsProvider, ColorTheme>(
+      selector: (_, settings) => settings.currentTheme,
+      builder: (context, currentTheme, _) {
+        return Scaffold(
+          backgroundColor: currentTheme.background,
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isLandscape = constraints.maxWidth > constraints.maxHeight;
+                if (isLandscape) {
+                  return _buildLandscapeLayout(currentTheme);
+                } else {
+                  return _buildPortraitLayout(currentTheme);
+                }
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildPortraitLayout(String speedText, ColorTheme currentTheme) {
+  Widget _buildPortraitLayout(ColorTheme currentTheme) {
     return Column(
       children: [
         // Speed area - takes most space, precise tap targets on text only
@@ -560,12 +230,20 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                 else ...[
                   Flexible(
                     flex: 7,
-                    child: GestureDetector(
-                      onTap: _cycleTheme, // Tap speed to cycle theme
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: _buildSpeedDisplay(speedText, currentTheme, 200),
-                      ),
+                    child: Selector<GpsDataManager, double>(
+                      selector: (_, gps) => gps.currentData.speed,
+                      builder: (context, speed, _) {
+                        final settings = context.read<SettingsProvider>();
+                        final displaySpeed = settings.currentUnit.convert(speed);
+                        final speedText = _getSpeedDisplayText(displaySpeed);
+                        return GestureDetector(
+                          onTap: () => context.read<SettingsProvider>().cycleTheme(),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: _buildSpeedDisplay(speedText, currentTheme, 200),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   Flexible(
@@ -576,19 +254,24 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                   ),
                   Flexible(
                     flex: 2,
-                    child: GestureDetector(
-                      onTap: _cycleUnit, // clicking on unit to cycle unit is more intuitive
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: Text(
-                          _currentUnit.label,
-                          style: TextStyle(
-                            fontSize: 80,
-                            color: currentTheme.unitText,
-                            fontFamily: 'DIN1451Alt',
+                    child: Selector<SettingsProvider, String>(
+                      selector: (_, settings) => settings.currentUnit.label,
+                      builder: (context, unitLabel, _) {
+                        return GestureDetector(
+                          onTap: () => context.read<SettingsProvider>().cycleUnit(),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Text(
+                              unitLabel,
+                              style: TextStyle(
+                                fontSize: 80,
+                                color: currentTheme.unitText,
+                                fontFamily: 'DIN1451Alt',
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                   Flexible(
@@ -608,53 +291,52 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              Logger.debug('Navigation area tapped - overlay active: $_isOverlayActive', 'Main');
-              if (_isOverlayActive) {
-                _closeFloatingWindow();
-              } else {
-                _showFloatingWindow();
-              }
+              context.read<OverlayProvider>().toggleOverlay();
             },
             onLongPress: () {
-              Logger.debug('Navigation area long-pressed - overlay active: $_isOverlayActive', 'Main');
-              _closeFloatingWindow();
+              context.read<OverlayProvider>().closeOverlay();
             },
             child: Container(
               width: double.infinity,
               color: Colors.transparent,
               padding: const EdgeInsets.all(2),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    flex: 3,
-                    child: Transform.rotate(
-                      angle: (_currentGpsData.heading >= 0 && _currentGpsData.heading < 360) ? (_currentGpsData.heading * math.pi / 180.0) : 0,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: Icon(
-                          Icons.navigation,
-                          size: 80,
-                          color: currentTheme.headingText,
+              child: Selector<GpsDataManager, (double heading, String displayHeading)>(
+                selector: (_, gps) => (gps.currentData.heading, gps.currentData.displayHeading),
+                builder: (context, data, _) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        flex: 3,
+                        child: Transform.rotate(
+                          angle: (data.$1 >= 0 && data.$1 < 360) ? (data.$1 * math.pi / 180.0) : 0,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Icon(
+                              Icons.navigation,
+                              size: 80,
+                              color: currentTheme.headingText,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  Flexible(
-                    flex: 1,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Text(
-                        _currentGpsData.displayHeading,
-                        style: TextStyle(
-                          fontSize: 50,
-                          color: currentTheme.headingText,
-                          fontFamily: 'DIN1451Alt',
+                      Flexible(
+                        flex: 1,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Text(
+                            data.$2,
+                            style: TextStyle(
+                              fontSize: 50,
+                              color: currentTheme.headingText,
+                              fontFamily: 'DIN1451Alt',
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -663,7 +345,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     );
   }
 
-  Widget _buildLandscapeLayout(String speedText, ColorTheme currentTheme) {
+  Widget _buildLandscapeLayout(ColorTheme currentTheme) {
     return Row(
       children: [
         // Speed area - takes majority of space, precise tap targets on text only
@@ -695,29 +377,42 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                   ),
                   Flexible(
                     flex: 20,
-                    child: GestureDetector(
-                      onTap: _cycleTheme,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: _buildSpeedDisplay(speedText, currentTheme, 160, isLandscape: true),
-                      ),
+                    child: Selector<GpsDataManager, double>(
+                      selector: (_, gps) => gps.currentData.speed,
+                      builder: (context, speed, _) {
+                        final settings = context.read<SettingsProvider>();
+                        final displaySpeed = settings.currentUnit.convert(speed);
+                        final speedText = _getSpeedDisplayText(displaySpeed);
+                        return GestureDetector(
+                          onTap: () => context.read<SettingsProvider>().cycleTheme(),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: _buildSpeedDisplay(speedText, currentTheme, 160),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   Flexible(
                     flex: 7,
-                    child: GestureDetector(
-                      onTap: _cycleUnit,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: Text(
-                          _currentUnit.label,
-                          style: TextStyle(
-                            fontSize: 50,
-                            color: currentTheme.unitText,
-                            fontFamily: 'DIN1451Alt',
+                    child: Selector<SettingsProvider, String>(
+                      selector: (_, settings) => settings.currentUnit.label,
+                      builder: (context, unitLabel, _) {
+                        return GestureDetector(
+                          onTap: () => context.read<SettingsProvider>().cycleUnit(),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Text(
+                              unitLabel,
+                              style: TextStyle(
+                                fontSize: 50,
+                                color: currentTheme.unitText,
+                                fontFamily: 'DIN1451Alt',
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                   Flexible(
@@ -735,53 +430,52 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              Logger.debug('Navigation area tapped (landscape) - overlay active: $_isOverlayActive', 'Main');
-              if (_isOverlayActive) {
-                _closeFloatingWindow();
-              } else {
-                _showFloatingWindow();
-              }
+              context.read<OverlayProvider>().toggleOverlay();
             },
             onLongPress: () {
-              Logger.debug('Navigation area long-pressed (landscape) - overlay active: $_isOverlayActive', 'Main');
-              _closeFloatingWindow();
+              context.read<OverlayProvider>().closeOverlay();
             },
             child: Container(
               height: double.infinity,
               color: Colors.transparent,
               padding: const EdgeInsets.all(2),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    flex: 3,
-                    child: Transform.rotate(
-                      angle: (_currentGpsData.heading >= 0 && _currentGpsData.heading < 360) ? (_currentGpsData.heading * math.pi / 180.0) : 0,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: Icon(
-                          Icons.navigation,
-                          size: 60,
-                          color: currentTheme.headingText,
+              child: Selector<GpsDataManager, (double heading, String displayHeading)>(
+                selector: (_, gps) => (gps.currentData.heading, gps.currentData.displayHeading),
+                builder: (context, data, _) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        flex: 3,
+                        child: Transform.rotate(
+                          angle: (data.$1 >= 0 && data.$1 < 360) ? (data.$1 * math.pi / 180.0) : 0,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Icon(
+                              Icons.navigation,
+                              size: 60,
+                              color: currentTheme.headingText,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  Flexible(
-                    flex: 1,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Text(
-                        _currentGpsData.displayHeading,
-                        style: TextStyle(
-                          fontSize: 30,
-                          color: currentTheme.headingText,
-                          fontFamily: 'DIN1451Alt',
+                      Flexible(
+                        flex: 1,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Text(
+                            data.$2,
+                            style: TextStyle(
+                              fontSize: 30,
+                              color: currentTheme.headingText,
+                              fontFamily: 'DIN1451Alt',
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
