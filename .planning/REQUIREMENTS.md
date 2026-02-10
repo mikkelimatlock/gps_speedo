@@ -20,13 +20,13 @@ Requirements for the restructure milestone. Each maps to roadmap phases.
 
 ### State management
 
-- [ ] **STATE-01**: `SpeedometerProvider` (ChangeNotifier) manages GPS data stream subscription and speed/heading state
-- [ ] **STATE-02**: `ThemeProvider` (ChangeNotifier) manages theme index and dark/light mode
-- [ ] **STATE-03**: `OverlayProvider` (ChangeNotifier) manages overlay lifecycle and status
-- [ ] **STATE-04**: `MultiProvider` setup in `main.dart` wiring services and providers
-- [ ] **STATE-05**: All `setState()` calls in main screen replaced with Provider Consumer/Selector pattern
-- [ ] **STATE-06**: Selector widgets used for granular rebuilds (speed display does not rebuild on theme change)
-- [ ] **STATE-07**: GPS stream subscription managed by provider, not widget state
+- [x] **STATE-01**: `GpsDataManager` (ChangeNotifier) manages GPS data stream subscription and speed/heading state
+- [x] **STATE-02**: `SettingsProvider` (ChangeNotifier) manages theme index and speed unit with SharedPreferences persistence
+- [x] **STATE-03**: `OverlayProvider` (ChangeNotifier) manages overlay lifecycle and status
+- [x] **STATE-04**: `MultiProvider` setup in `main.dart` wiring services and providers
+- [x] **STATE-05**: All `setState()` calls in main screen replaced with Provider Consumer/Selector pattern
+- [x] **STATE-06**: Selector widgets used for granular rebuilds (speed display does not rebuild on theme change)
+- [x] **STATE-07**: GPS stream subscription managed by provider, not widget state
 
 ### Overlay reliability
 
@@ -106,13 +106,13 @@ Deferred to future release. Tracked but not in current roadmap.
 | ORG-06 | Phase 1 | Complete |
 | ORG-07 | Phase 1 | Complete |
 | ORG-08 | Phase 1 | Complete |
-| STATE-01 | Phase 2 | Pending |
-| STATE-02 | Phase 2 | Pending |
-| STATE-03 | Phase 2 | Pending |
-| STATE-04 | Phase 2 | Pending |
-| STATE-05 | Phase 2 | Pending |
-| STATE-06 | Phase 2 | Pending |
-| STATE-07 | Phase 2 | Pending |
+| STATE-01 | Phase 2 | Complete |
+| STATE-02 | Phase 2 | Complete |
+| STATE-03 | Phase 2 | Complete |
+| STATE-04 | Phase 2 | Complete |
+| STATE-05 | Phase 2 | Complete |
+| STATE-06 | Phase 2 | Complete |
+| STATE-07 | Phase 2 | Complete |
 | OVRL-01 | Phase 3 | Pending |
 | OVRL-02 | Phase 3 | Pending |
 | OVRL-03 | Phase 3 | Pending |
@@ -140,4 +140,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 (Phase 1 requirements marked Complete)*
+*Last updated: 2026-02-10 (Phase 2 requirements marked Complete)*
