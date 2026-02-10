@@ -59,7 +59,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Create providers (GpsDataManager ChangeNotifier + SettingsProvider + OverlayProvider) and add dependencies
+- [x] 02-01-PLAN.md — Create providers (GpsDataManager ChangeNotifier + SettingsProvider + OverlayProvider) and add dependencies (7.7 min)
 - [ ] 02-02-PLAN.md — Wire MultiProvider in main.dart and migrate SpeedometerScreen to Consumer/Selector
 
 ### Phase 3: Overlay Refactor
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | **COMPLETE** | 2026-02-09 |
-| 2. Provider Migration | 0/TBD | Not started | - |
+| 2. Provider Migration | 1/2 | **IN PROGRESS** | - |
 | 3. Overlay Refactor | 0/TBD | Not started | - |
 | 4. GPS & Power Optimization | 0/TBD | Not started | - |
 
@@ -129,4 +129,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 ---
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-09 (Phase 1 complete - 19.6 min total)*
+*Last updated: 2026-02-10 (Phase 2 in progress - 27.3 min total, 1/2 plans)*
