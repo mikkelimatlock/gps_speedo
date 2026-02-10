@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import '../gps_service.dart';
 import '../config/speed_unit.dart';
@@ -6,11 +7,8 @@ import '../config/gps_constants.dart';
 import '../models/processed_gps_data.dart';
 import 'logger.dart';
 
-class GpsDataManager {
-  static GpsDataManager? _instance;
-  static GpsDataManager get instance => _instance ??= GpsDataManager._internal();
-  
-  GpsDataManager._internal();
+class GpsDataManager extends ChangeNotifier {
+  GpsDataManager();
   
   StreamSubscription<Position>? _gpsSubscription;
   final StreamController<ProcessedGpsData> _dataController = 
@@ -26,6 +24,7 @@ class GpsDataManager {
   );
   
   Timer? _staleDataTimer;
+  bool _isDisposed = false;
 
   // Public stream for UI components to subscribe to
   Stream<ProcessedGpsData> get dataStream => _dataController.stream;
@@ -157,6 +156,7 @@ class GpsDataManager {
   }
   
   void _onGpsError(dynamic error) {
+    if (_isDisposed) return;
     // Handle GPS errors gracefully
     final errorString = error.toString().toLowerCase();
     if (!errorString.contains('timeout') && !errorString.contains('temporarily')) {
@@ -175,6 +175,7 @@ class GpsDataManager {
   }
 
   void _handleStaleDataTimeout() {
+    if (_isDisposed) return;
     // Avoid overriding explicit GPS error states or repeated stale notifications
     final displayText = _currentData.displaySpeed;
     if (displayText == '--' || displayText.startsWith('GPS') || displayText == 'NO PERM') {
@@ -198,9 +199,11 @@ class GpsDataManager {
   }
 
   void _updateData(ProcessedGpsData newData) {
+    if (_isDisposed) return;
     Logger.debug('Broadcasting data: ${newData.displaySpeed} ${newData.displayHeading}', 'GpsDataManager');
     _currentData = newData;
     _dataController.add(newData);
+    notifyListeners();
     Logger.debug('Data broadcast complete', 'GpsDataManager');
   }
   
@@ -212,7 +215,9 @@ class GpsDataManager {
     return convertedSpeed < 1.0 ? '--' : convertedSpeed.toStringAsFixed(1);
   }
   
+  @override
   void dispose() {
+    _isDisposed = true;
     Logger.info('Disposing GPS manager...', 'GpsDataManager');
     if (_gpsSubscription != null) {
       Logger.debug('Cancelling GPS subscription...', 'GpsDataManager');
@@ -223,7 +228,7 @@ class GpsDataManager {
     _staleDataTimer?.cancel();
     _staleDataTimer = null;
     _dataController.close();
-    _isInitialized = false;
     Logger.info('GPS manager disposed', 'GpsDataManager');
+    super.dispose();
   }
 }
