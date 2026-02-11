@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -28,9 +29,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Delay GPS init to after first frame so context is available
+    // Delay GPS init and error callback setup to after first frame so context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeGpsManager();
+      context.read<OverlayProvider>().onError = _handleOverlayError;
     });
     _enableWakelock();
     _ensureOverlayPermission();
@@ -42,6 +44,11 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     WidgetsBinding.instance.removeObserver(this);
     _backgroundHeartbeatTimer?.cancel();
     WakelockPlus.disable();
+    try {
+      context.read<OverlayProvider>().onError = null;
+    } catch (e) {
+      // Provider might already be disposed
+    }
     Logger.info('SpeedometerScreen disposed', 'Main');
     super.dispose();
   }
@@ -57,6 +64,37 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
         setState(() => _errorMessage = 'Failed to initialize GPS manager');
       }
     }
+  }
+
+  void _handleOverlayError(OverlayError error) {
+    if (!mounted) return;
+
+    String message;
+    SnackBarAction? action;
+
+    switch (error) {
+      case OverlayError.permission:
+        message = 'Overlay permission required';
+        action = SnackBarAction(
+          label: 'Settings',
+          onPressed: () => openAppSettings(),
+        );
+        break;
+      case OverlayError.creationFailed:
+        message = 'Failed to create overlay window';
+        break;
+      case OverlayError.communicationDegraded:
+        message = 'Overlay communication degraded';
+        break;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: action,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _enableWakelock() async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../config/color_themes.dart';
@@ -22,6 +23,8 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
   double _systemScreenWidth = 400;
   double _overlayWidth = 280;
   double _overlayHeight = 140;
+  DateTime _lastUpdateTime = DateTime.now();
+  Timer? _stalenessCheckTimer;
 
   @override
   void initState() {
@@ -29,10 +32,12 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
     Logger.info('CREATED - Floating window initialized (${DateTime.now().millisecondsSinceEpoch})', 'Overlay');
     _getSystemScreenSize();
     _listenToMainAppMessages();
+    _startStalenessMonitoring();
   }
 
   @override
   void dispose() {
+    _stalenessCheckTimer?.cancel();
     Logger.info('DISPOSING - Overlay widget disposed (${DateTime.now().millisecondsSinceEpoch})', 'Overlay');
     super.dispose();
   }
@@ -75,6 +80,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
             _headingText = message.headingText ?? 'N/A';
             _heading = message.heading ?? -1.0;
             _currentThemeIndex = message.themeIndex ?? 0;
+            _lastUpdateTime = message.timestamp;
             // Update overlay dimensions if provided by main app
             if (message.overlayWidth != null) {
               _overlayWidth = message.overlayWidth!;
@@ -96,11 +102,29 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
     });
   }
 
+  void _startStalenessMonitoring() {
+    _stalenessCheckTimer = Timer.periodic(OverlayConfig.STALENESS_CHECK_INTERVAL, (timer) {
+      if (!mounted) return;
+
+      final age = DateTime.now().difference(_lastUpdateTime);
+      if (age >= OverlayConfig.STALENESS_DASH_THRESHOLD && _speedText != '--') {
+        setState(() {
+          _speedText = '--';
+        });
+      }
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final buildTimestamp = DateTime.now().millisecondsSinceEpoch;
     final currentTheme = ColorThemes.getTheme(_currentThemeIndex);
+
+    // Calculate staleness opacity
+    final age = DateTime.now().difference(_lastUpdateTime);
+    final isStale = age >= OverlayConfig.STALENESS_DIM_THRESHOLD;
+    final staleOpacity = isStale ? OverlayConfig.STALENESS_DIM_OPACITY : 1.0;
 
     // Use overlay dimensions provided by main app (not calculated locally)
     final fontSize = (_overlayWidth * OverlayConfig.FONT_SIZE_RATIO);
@@ -146,7 +170,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                   style: TextStyle(
                                     fontSize: fontSize,
                                     fontWeight: FontWeight.w300,
-                                    color: currentTheme.speedText,
+                                    color: currentTheme.speedText.withValues(alpha: staleOpacity),
                                     fontFamily: 'DIN1451Alt',
                                   ),
                                 ),
@@ -161,7 +185,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                   style: TextStyle(
                                     fontSize: fontSize * OverlayConfig.UNIT_FONT_RATIO,
                                     fontWeight: FontWeight.w300,
-                                    color: currentTheme.unitText,
+                                    color: currentTheme.unitText.withValues(alpha: staleOpacity),
                                     fontFamily: 'DIN1451Alt',
                                   ),
                                 ),
@@ -189,7 +213,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                 child: Icon(
                                   Icons.navigation,
                                   size: fontSize * OverlayConfig.ICON_SIZE_RATIO,
-                                  color: currentTheme.headingText,
+                                  color: currentTheme.headingText.withValues(alpha: staleOpacity),
                                 ),
                               ),
                             ),
@@ -202,7 +226,7 @@ class _OverlaySpeedometerState extends State<OverlaySpeedometer> {
                                 _headingText,
                                 style: TextStyle(
                                   fontSize: fontSize * OverlayConfig.HEADING_FONT_RATIO,
-                                  color: currentTheme.headingText,
+                                  color: currentTheme.headingText.withValues(alpha: staleOpacity),
                                   fontFamily: 'DIN1451Alt',
                                 ),
                               ),
