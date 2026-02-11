@@ -10,8 +10,9 @@ class OverlayMessage {
   final int? themeIndex;
   final double? overlayWidth;
   final double? overlayHeight;
+  final DateTime timestamp;
 
-  const OverlayMessage({
+  OverlayMessage({
     required this.action,
     this.speedText,
     this.unitText,
@@ -21,6 +22,7 @@ class OverlayMessage {
     this.themeIndex,
     this.overlayWidth,
     this.overlayHeight,
+    required this.timestamp,
   });
 
   /// Factory constructor for display update messages
@@ -44,17 +46,24 @@ class OverlayMessage {
       themeIndex: themeIndex,
       overlayWidth: overlayWidth,
       overlayHeight: overlayHeight,
+      timestamp: DateTime.now(),
     );
   }
 
   /// Factory constructor for long press close signal
   factory OverlayMessage.longPressClose() {
-    return const OverlayMessage(action: 'longPressClose');
+    return OverlayMessage(
+      action: 'longPressClose',
+      timestamp: DateTime.now(),
+    );
   }
 
   /// Factory constructor for overlay closed notification
   factory OverlayMessage.overlayClosed() {
-    return const OverlayMessage(action: 'overlayClosed');
+    return OverlayMessage(
+      action: 'overlayClosed',
+      timestamp: DateTime.now(),
+    );
   }
 
   /// Serialize to Map for overlay IPC
@@ -68,6 +77,7 @@ class OverlayMessage {
     if (themeIndex != null) map['themeIndex'] = themeIndex;
     if (overlayWidth != null) map['overlayWidth'] = overlayWidth;
     if (overlayHeight != null) map['overlayHeight'] = overlayHeight;
+    map['timestamp'] = timestamp.millisecondsSinceEpoch;
     return map;
   }
 
@@ -83,6 +93,9 @@ class OverlayMessage {
       themeIndex: map['themeIndex'] as int?,
       overlayWidth: (map['overlayWidth'] as num?)?.toDouble(),
       overlayHeight: (map['overlayHeight'] as num?)?.toDouble(),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      ),
     );
   }
 
@@ -97,6 +110,7 @@ class OverlayMessage {
     int? themeIndex,
     double? overlayWidth,
     double? overlayHeight,
+    DateTime? timestamp,
   }) {
     return OverlayMessage(
       action: action ?? this.action,
@@ -108,6 +122,7 @@ class OverlayMessage {
       themeIndex: themeIndex ?? this.themeIndex,
       overlayWidth: overlayWidth ?? this.overlayWidth,
       overlayHeight: overlayHeight ?? this.overlayHeight,
+      timestamp: timestamp ?? this.timestamp,
     );
   }
 }
