@@ -78,10 +78,11 @@ Plans:
   5. Heartbeat timer only runs when overlay active and app backgrounded
   6. Overlay shows current speed and heading that matches main app display
 
-**Plans**: TBD (1-2 plans expected)
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: [To be planned]
+- [ ] 03-01-PLAN.md — OverlayService wrapper, OverlayMessage timestamp, staleness/grace period constants
+- [ ] 03-02-PLAN.md — OverlayProvider refactor, overlay staleness UI, error snackbar surfacing
 
 ### Phase 4: GPS & Power Optimization
 
@@ -113,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | **COMPLETE** | 2026-02-09 |
 | 2. Provider Migration | 2/2 | **COMPLETE** | 2026-02-10 |
-| 3. Overlay Refactor | 0/TBD | Not started | - |
+| 3. Overlay Refactor | 0/2 | Not started | - |
 | 4. GPS & Power Optimization | 0/TBD | Not started | - |
 
 ## Notes
