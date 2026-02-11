@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Reliable, lag-free GPS speed display that coexists politely with other Android apps
-**Current focus:** Phase 3 - Overlay Refactor (IN PROGRESS)
+**Current focus:** Phase 4 - GPS Optimization
 
 ## Current Position
 
 Phase: 3 of 4 (Overlay Refactor)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-11 — Completed 03-01-PLAN.md
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-11 — Completed 03-02-PLAN.md
 
-Progress: [████░░░░░░] 55% (Phase 3: 1/2 plans)
+Progress: [██████░░░░] 60% (Phase 3: 2/2 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 6.9 minutes
-- Total execution time: 0.58 hours
+- Total plans completed: 6
+- Average duration: 6.3 minutes
+- Total execution time: 0.63 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [████░░░░░░] 55% (Phase 3: 1/2 plans)
 |-------|-------|-------|----------|
 | 1. Foundation | 2 | 19.6 min | 9.8 min |
 | 2. Provider Migration | 2 | 11.5 min | 5.75 min |
-| 3. Overlay Refactor | 1 | 4.0 min | 4.0 min |
+| 3. Overlay Refactor | 2 | 8.25 min | 4.1 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (6.8 min), 02-01 (7.7 min), 02-02 (3.8 min), 03-01 (4.0 min)
-- Trend: Continuing acceleration (4.0 min on latest plan)
+- Last 5 plans: 02-01 (7.7 min), 02-02 (3.8 min), 03-01 (4.0 min), 03-02 (4.25 min)
+- Trend: Consistent sub-5-minute plans in Phase 3
 
 *Updated after each plan completion*
 
@@ -66,6 +66,10 @@ Recent decisions affecting current work:
 | 03    | 01    | shareData fire-and-forget (no retry, warn logging)    | Implemented    |
 | 03    | 01    | Staleness thresholds: 3s dim, 10s dash                | Implemented    |
 | 03    | 01    | Timestamp auto-populated in OverlayMessage factories  | Implemented    |
+| 03    | 02    | OverlayProvider delegates ALL calls to OverlayService | Implemented    |
+| 03    | 02    | Error callback pattern for provider-to-screen comm    | Implemented    |
+| 03    | 02    | Staleness opacity via withValues(alpha:) no animation | Implemented    |
+| 03    | 02    | GPS grace period timer created (Phase 4 lifecycle)    | Implemented    |
 | 04    | TBD   | Speed-adaptive GPS precision (~10 km/h threshold)     | Pending        |
 | 04    | TBD   | Background GPS only when overlay visible              | Pending        |
 
@@ -84,12 +88,17 @@ Recent decisions affecting current work:
 - [ ] Manual testing: Settings persistence, theme/unit cycling, overlay toggle, background heartbeat
 - [ ] Manual testing: Verify no "setState after dispose" or "ChangeNotifier after dispose" errors
 
-**Phase 3 In Progress:**
+**Phase 3 Complete:**
 - [x] 03-01 complete — Overlay foundation infrastructure (4.0 min)
-- [x] OverlayService wrapper with retry logic created
-- [x] OverlayMessage enhanced with timestamp tracking
-- [x] Staleness constants and GPS grace period defined
-- [ ] 03-02 next — Integrate OverlayService and staleness detection
+- [x] 03-02 complete — Overlay integration with staleness detection (4.25 min)
+- [x] OverlayProvider delegates all platform calls to OverlayService
+- [x] Permission checks before overlay creation, verified creation via isActive()
+- [x] Staleness detection: dim at 3s, dashes at 10s, immediate snap-back
+- [x] Error surfacing via snackbar with Settings action for permission errors
+- [x] GPS grace period timer (30s) infrastructure for Phase 4
+- [ ] Manual testing: Verify overlay reliability improvements on physical device
+- [ ] Manual testing: Test permission error snackbar and Settings action button
+- [ ] Manual testing: Verify staleness dimming and dash display timing
 
 ### Blockers/Concerns
 
@@ -106,13 +115,15 @@ Recent decisions affecting current work:
 - RESOLVED: Zero setState calls for shared state (theme, unit, GPS data, overlay status)
 - INFO: Manual testing needed to verify settings persistence and provider lifecycle
 
-**Phase 3 (Overlay Refactor) — In Progress:**
+**Phase 3 (Overlay Refactor) — Complete:**
 - RESOLVED: OverlayService foundation complete with retry logic
-- RESOLVED: Timestamp tracking in OverlayMessage for staleness detection
-- RESOLVED: Staleness constants defined (3s dim, 10s dash, 30s GPS grace)
+- RESOLVED: OverlayProvider integration complete with permission checks and verified creation
+- RESOLVED: Staleness detection complete (3s dim, 10s dash, immediate snap-back)
+- RESOLVED: Error surfacing complete (snackbar with Settings action for permission errors)
+- RESOLVED: GPS grace period timer infrastructure created for Phase 4
 - MEDIUM RISK: flutter_overlay_window 0.5.0 has known communication issues (mitigated by retry + verification)
-- INFO: Plan 03-02 will integrate OverlayService and implement staleness UI feedback
-- INFO: Manual testing needed after 03-02 to verify overlay reliability improvements
+- INFO: Manual testing needed to verify overlay reliability improvements on physical device
+- INFO: All OVRL-01 through OVRL-06 requirements satisfied
 
 **Phase 4 (GPS Optimization):**
 - Speed thresholds (8/12 km/h) need field testing validation
@@ -120,7 +131,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Plan 03-01 execution complete)
-Stopped at: Completed 03-01-PLAN.md — Phase 3 Plan 1 complete
+Last session: 2026-02-11 (Plan 03-02 execution complete)
+Stopped at: Completed 03-02-PLAN.md — Phase 3 complete
 Resume file: None
-Next action: Execute 03-02-PLAN.md (Overlay integration)
+Next action: Begin Phase 4 (GPS Optimization) planning
