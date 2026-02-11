@@ -100,22 +100,23 @@ Plans:
   5. Wake lock only held when actively tracking with overlay
   6. Other apps can access location normally while GPS Speedometer runs
 
-**Plans**: TBD (2-3 plans expected)
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: [To be planned]
+- [ ] 04-01-PLAN.md — Core GPS engine: precision switching, lifecycle management, wake lock control
+- [ ] 04-02-PLAN.md — UI integration: main app staleness detection, screen cleanup, provider wiring
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | **COMPLETE** | 2026-02-09 |
 | 2. Provider Migration | 2/2 | **COMPLETE** | 2026-02-10 |
 | 3. Overlay Refactor | 2/2 | **COMPLETE** | 2026-02-11 |
-| 4. GPS & Power Optimization | 0/TBD | Not started | - |
+| 4. GPS & Power Optimization | 0/2 | Not started | - |
 
 ## Notes
 
@@ -130,4 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 ---
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 (Phase 3 complete - 8.25 min total, 2/2 plans)*
+*Last updated: 2026-02-12 (Phase 4 planned - 2 plans)*
