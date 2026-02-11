@@ -13,4 +13,7 @@ abstract class TimingConfig {
 
   /// Delay for long press gesture signal
   static const Duration LONG_PRESS_SIGNAL_DELAY = Duration(milliseconds: 50);
+
+  /// GPS grace period - continues for 30s after overlay close when backgrounded
+  static const Duration GPS_GRACE_PERIOD = Duration(seconds: 30);
 }

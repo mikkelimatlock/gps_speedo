@@ -34,4 +34,16 @@ abstract class OverlayConfig {
 
   /// Default overlay height for calculations
   static const double DEFAULT_OVERLAY_HEIGHT = 140.0;
+
+  /// Time after which overlay dims speed display due to stale data
+  static const Duration STALENESS_DIM_THRESHOLD = Duration(seconds: 3);
+
+  /// Time after which overlay shows dashes instead of speed
+  static const Duration STALENESS_DASH_THRESHOLD = Duration(seconds: 10);
+
+  /// Opacity value for dimmed stale state
+  static const double STALENESS_DIM_OPACITY = 0.5;
+
+  /// Interval for checking data staleness
+  static const Duration STALENESS_CHECK_INTERVAL = Duration(seconds: 1);
 }
