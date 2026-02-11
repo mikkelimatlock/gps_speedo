@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/speedometer_screen.dart';
 import 'screens/overlay_screen.dart';
 import 'services/gps_data_manager.dart';
+import 'services/overlay_service.dart';
 import 'providers/settings_provider.dart';
 import 'providers/overlay_provider.dart';
 import 'services/logger.dart';
@@ -16,6 +17,7 @@ void main() async {
     MultiProvider(
       providers: [
         Provider<SharedPreferences>.value(value: prefs),
+        Provider<OverlayService>(create: (_) => OverlayService()),
         ChangeNotifierProvider(
           create: (context) => SettingsProvider(context.read<SharedPreferences>()),
         ),
@@ -23,7 +25,7 @@ void main() async {
           create: (_) => GpsDataManager(),
         ),
         ChangeNotifierProxyProvider2<GpsDataManager, SettingsProvider, OverlayProvider>(
-          create: (_) => OverlayProvider(),
+          create: (context) => OverlayProvider(context.read<OverlayService>()),
           update: (_, gpsManager, settings, overlay) => overlay!
             ..updateDependencies(
               gpsManager: gpsManager,

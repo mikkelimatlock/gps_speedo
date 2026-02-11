@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:bg_launcher/bg_launcher.dart';
 import '../config/overlay_constants.dart';
 import '../config/timing_constants.dart';
@@ -9,8 +8,13 @@ import '../models/overlay_message.dart';
 import '../models/processed_gps_data.dart';
 import '../services/gps_data_manager.dart';
 import '../services/logger.dart';
+import '../services/overlay_service.dart';
+
+enum OverlayError { permission, creationFailed, communicationDegraded }
 
 class OverlayProvider extends ChangeNotifier {
+  final OverlayService _overlayService;
+
   bool _isOverlayActive = false;
   bool _isDisposed = false;
   bool _tapCloseRequested = false;
@@ -19,11 +23,17 @@ class OverlayProvider extends ChangeNotifier {
   StreamSubscription<dynamic>? _overlayMessageSubscription;
   Timer? _overlayStatusCheckTimer;
   Timer? _tapCloseTimer;
+  Timer? _gracePeriodTimer;
 
   // Dependencies — set via update() from ProxyProvider
   GpsDataManager? _gpsManager;
   SpeedUnit _currentUnit = SpeedUnit.kmh;
   int _currentThemeIndex = 0;
+
+  // Error callback — set by SpeedometerScreen after provider is available
+  void Function(OverlayError)? onError;
+
+  OverlayProvider(this._overlayService);
 
   bool get isOverlayActive => _isOverlayActive;
 
@@ -60,7 +70,19 @@ class OverlayProvider extends ChangeNotifier {
   Future<void> showOverlay() async {
     if (_isDisposed) return;
 
+    // Cancel grace period if user reopens overlay within grace period
+    _gracePeriodTimer?.cancel();
+    _gracePeriodTimer = null;
+
     try {
+      // Check permission before attempting to show overlay
+      final hasPermission = await _overlayService.checkPermission();
+      if (!hasPermission) {
+        Logger.warn('Overlay permission denied', 'OverlayProvider');
+        onError?.call(OverlayError.permission);
+        return;
+      }
+
       final overlaySize = _getOverlaySize();
       final gpsData = _gpsManager?.currentData;
 
@@ -69,7 +91,7 @@ class OverlayProvider extends ChangeNotifier {
       final headingText = gpsData?.displayHeading ?? 'N/A';
       final unitText = _currentUnit.label;
 
-      await FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
+      await _overlayService.shareData(OverlayMessage.updateDisplay(
         speedText: speedText,
         unitText: unitText,
         headingText: headingText,
@@ -80,16 +102,16 @@ class OverlayProvider extends ChangeNotifier {
         overlayHeight: overlaySize['height']!.toDouble(),
       ).toMap());
 
-      await FlutterOverlayWindow.showOverlay(
-        enableDrag: true,
-        overlayTitle: "Speedometer",
-        overlayContent: 'Speedo overlay active',
-        flag: OverlayFlag.defaultFlag,
-        visibility: NotificationVisibility.visibilityPublic,
-        positionGravity: PositionGravity.none,
+      final success = await _overlayService.showOverlay(
         width: overlaySize['width']!,
         height: overlaySize['height']!,
       );
+
+      if (!success) {
+        Logger.error('Overlay creation failed or verification failed', 'OverlayProvider');
+        onError?.call(OverlayError.creationFailed);
+        return;
+      }
 
       Logger.info('OVERLAY LAUNCHED - Size: ${overlaySize['width']}x${overlaySize['height']}', 'OverlayProvider');
 
@@ -99,6 +121,7 @@ class OverlayProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       Logger.error('Failed to show overlay: $e', 'OverlayProvider');
+      onError?.call(OverlayError.creationFailed);
     }
   }
 
@@ -107,7 +130,7 @@ class OverlayProvider extends ChangeNotifier {
     if (!_isOverlayActive || _isDisposed) return;
 
     try {
-      await FlutterOverlayWindow.closeOverlay();
+      await _overlayService.closeOverlay();
       Logger.info('OVERLAY CLOSED - Requested from main app', 'OverlayProvider');
       _handleOverlayClose();
     } catch (e) {
@@ -141,7 +164,7 @@ class OverlayProvider extends ChangeNotifier {
 
     Logger.debug('Pushing to overlay: speed="$speedText", heading="$headingText"', 'OverlayProvider');
 
-    FlutterOverlayWindow.shareData(OverlayMessage.updateDisplay(
+    _overlayService.shareData(OverlayMessage.updateDisplay(
       speedText: speedText,
       unitText: unitText,
       headingText: headingText,
@@ -154,7 +177,7 @@ class OverlayProvider extends ChangeNotifier {
   void _startListeningToOverlayMessages() {
     if (_overlayMessageSubscription != null) return;
 
-    _overlayMessageSubscription = FlutterOverlayWindow.overlayListener.listen(
+    _overlayMessageSubscription = _overlayService.overlayListener.listen(
       (data) {
         try {
           if (data is Map) {
@@ -195,7 +218,7 @@ class OverlayProvider extends ChangeNotifier {
     _overlayStatusCheckTimer = Timer.periodic(TimingConfig.OVERLAY_STATUS_CHECK_INTERVAL, (timer) async {
       if (_isOverlayActive && !_isDisposed) {
         try {
-          final isActive = await FlutterOverlayWindow.isActive();
+          final isActive = await _overlayService.isActive();
           if (!isActive) {
             timer.cancel();
             _handleOverlayClose();
@@ -222,6 +245,13 @@ class OverlayProvider extends ChangeNotifier {
     _isOverlayActive = false;
     _stopListeningToOverlayMessages();
     notifyListeners();
+
+    // Start GPS grace period (30s) — infrastructure for Phase 4
+    _gracePeriodTimer?.cancel();
+    _gracePeriodTimer = Timer(TimingConfig.GPS_GRACE_PERIOD, () {
+      Logger.info('GPS grace period expired', 'OverlayProvider');
+      _gracePeriodTimer = null;
+    });
 
     if (shouldBringToFront) {
       _bringAppToFront();
@@ -250,6 +280,7 @@ class OverlayProvider extends ChangeNotifier {
     _overlayMessageSubscription?.cancel();
     _overlayStatusCheckTimer?.cancel();
     _tapCloseTimer?.cancel();
+    _gracePeriodTimer?.cancel();
     Logger.info('OverlayProvider disposed', 'OverlayProvider');
     super.dispose();
   }
