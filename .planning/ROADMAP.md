@@ -13,8 +13,8 @@ This roadmap transforms a 1,133-line monolithic Flutter app into a maintainable 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Establish directory structure and extract models (COMPLETE 2026-02-09)
-- [ ] **Phase 2: Provider Migration** - Replace setState with proper state management
-- [ ] **Phase 3: Overlay Refactor** - Fix overlay communication reliability
+- [x] **Phase 2: Provider Migration** - Replace setState with proper state management (COMPLETE 2026-02-10)
+- [x] **Phase 3: Overlay Refactor** - Fix overlay communication reliability (COMPLETE 2026-02-11)
 - [ ] **Phase 4: GPS & Power Optimization** - Implement adaptive precision and lifecycle management
 
 ## Phase Details
@@ -72,7 +72,7 @@ Plans:
 
 **Success Criteria** (what must be TRUE):
   1. Overlay receives continuous GPS updates without going stale
-  2. Overlay displays "--" when data is more than 2 seconds old
+  2. Overlay dims display after 3 seconds of no data, shows "--" after 10 seconds
   3. Overlay creation failures surface to user via snackbar instead of silent failure
   4. OverlayService encapsulates all flutter_overlay_window platform calls
   5. Heartbeat timer only runs when overlay active and app backgrounded
@@ -81,8 +81,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — OverlayService wrapper, OverlayMessage timestamp, staleness/grace period constants
-- [ ] 03-02-PLAN.md — OverlayProvider refactor, overlay staleness UI, error snackbar surfacing
+- [x] 03-01-PLAN.md — OverlayService wrapper, OverlayMessage timestamp, staleness/grace period constants (4.0 min)
+- [x] 03-02-PLAN.md — OverlayProvider refactor, overlay staleness UI, error snackbar surfacing (4.25 min)
 
 ### Phase 4: GPS & Power Optimization
 
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | **COMPLETE** | 2026-02-09 |
 | 2. Provider Migration | 2/2 | **COMPLETE** | 2026-02-10 |
-| 3. Overlay Refactor | 0/2 | Not started | - |
+| 3. Overlay Refactor | 2/2 | **COMPLETE** | 2026-02-11 |
 | 4. GPS & Power Optimization | 0/TBD | Not started | - |
 
 ## Notes
@@ -130,4 +130,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 ---
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-10 (Phase 2 complete - 11.5 min total, 2/2 plans)*
+*Last updated: 2026-02-11 (Phase 3 complete - 8.25 min total, 2/2 plans)*

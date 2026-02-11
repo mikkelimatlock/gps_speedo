@@ -30,12 +30,12 @@ Requirements for the restructure milestone. Each maps to roadmap phases.
 
 ### Overlay reliability
 
-- [ ] **OVRL-01**: Overlay receives continuous debounced data updates (not one-shot push + heartbeat)
-- [ ] **OVRL-02**: Overlay errors surfaced to user via snackbar/toast (no silent catch blocks)
-- [ ] **OVRL-03**: Overlay creation verified before setting `isOverlayActive` flag
-- [ ] **OVRL-04**: Messages include timestamp for staleness detection in overlay
-- [ ] **OVRL-05**: Overlay displays "--" when data is stale (no updates for >2 seconds)
-- [ ] **OVRL-06**: `OverlayService` encapsulates all `FlutterOverlayWindow` platform calls
+- [x] **OVRL-01**: Overlay receives continuous debounced data updates (not one-shot push + heartbeat)
+- [x] **OVRL-02**: Overlay errors surfaced to user via snackbar/toast (no silent catch blocks)
+- [x] **OVRL-03**: Overlay creation verified before setting `isOverlayActive` flag
+- [x] **OVRL-04**: Messages include timestamp for staleness detection in overlay
+- [x] **OVRL-05**: Overlay displays "--" when data is stale (dims at 3s, dashes at 10s per user decision)
+- [x] **OVRL-06**: `OverlayService` encapsulates all `FlutterOverlayWindow` platform calls
 
 ### GPS performance
 
@@ -113,12 +113,12 @@ Deferred to future release. Tracked but not in current roadmap.
 | STATE-05 | Phase 2 | Complete |
 | STATE-06 | Phase 2 | Complete |
 | STATE-07 | Phase 2 | Complete |
-| OVRL-01 | Phase 3 | Pending |
-| OVRL-02 | Phase 3 | Pending |
-| OVRL-03 | Phase 3 | Pending |
-| OVRL-04 | Phase 3 | Pending |
-| OVRL-05 | Phase 3 | Pending |
-| OVRL-06 | Phase 3 | Pending |
+| OVRL-01 | Phase 3 | Complete |
+| OVRL-02 | Phase 3 | Complete |
+| OVRL-03 | Phase 3 | Complete |
+| OVRL-04 | Phase 3 | Complete |
+| OVRL-05 | Phase 3 | Complete |
+| OVRL-06 | Phase 3 | Complete |
 | GPS-01 | Phase 4 | Pending |
 | GPS-02 | Phase 4 | Pending |
 | GPS-03 | Phase 4 | Pending |
@@ -140,4 +140,4 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-10 (Phase 2 requirements marked Complete)*
+*Last updated: 2026-02-11 (Phase 3 requirements marked Complete)*
