@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Reliable, lag-free GPS speed display that coexists politely with other Android apps
-**Current focus:** Phase 2 - Provider Migration (COMPLETE)
+**Current focus:** Phase 3 - Overlay Refactor (IN PROGRESS)
 
 ## Current Position
 
-Phase: 2 of 4 (Provider Migration)
-Plan: 2 of 2 complete
-Status: Phase complete — ready for Phase 3 planning
-Last activity: 2026-02-10 — Completed 02-02-PLAN.md
+Phase: 3 of 4 (Overlay Refactor)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-11 — Completed 03-01-PLAN.md
 
-Progress: [███░░░░░░░] 50% (Phase 2: 2/2 plans)
+Progress: [████░░░░░░] 55% (Phase 3: 1/2 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 7.6 minutes
-- Total execution time: 0.51 hours
+- Total plans completed: 5
+- Average duration: 6.9 minutes
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [███░░░░░░░] 50% (Phase 2: 2/2 plans)
 |-------|-------|-------|----------|
 | 1. Foundation | 2 | 19.6 min | 9.8 min |
 | 2. Provider Migration | 2 | 11.5 min | 5.75 min |
+| 3. Overlay Refactor | 1 | 4.0 min | 4.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (12.8 min), 01-02 (6.8 min), 02-01 (7.7 min), 02-02 (3.8 min)
-- Trend: Accelerating (50% faster on plan 4 vs plan 1)
+- Last 5 plans: 01-02 (6.8 min), 02-01 (7.7 min), 02-02 (3.8 min), 03-01 (4.0 min)
+- Trend: Continuing acceleration (4.0 min on latest plan)
 
 *Updated after each plan completion*
 
@@ -60,6 +61,11 @@ Recent decisions affecting current work:
 | 02    | 02    | Speed Selector uses context.read<SettingsProvider>() | Implemented    |
 | 02    | 02    | Background heartbeat stays in screen (not provider)   | Implemented    |
 | 02    | 02    | _isInBackground direct assignment (no setState)       | Implemented    |
+| 03    | 01    | OverlayService wraps all FlutterOverlayWindow calls   | Implemented    |
+| 03    | 01    | showOverlay verifies with isActive() post-call        | Implemented    |
+| 03    | 01    | shareData fire-and-forget (no retry, warn logging)    | Implemented    |
+| 03    | 01    | Staleness thresholds: 3s dim, 10s dash                | Implemented    |
+| 03    | 01    | Timestamp auto-populated in OverlayMessage factories  | Implemented    |
 | 04    | TBD   | Speed-adaptive GPS precision (~10 km/h threshold)     | Pending        |
 | 04    | TBD   | Background GPS only when overlay visible              | Pending        |
 
@@ -78,8 +84,12 @@ Recent decisions affecting current work:
 - [ ] Manual testing: Settings persistence, theme/unit cycling, overlay toggle, background heartbeat
 - [ ] Manual testing: Verify no "setState after dispose" or "ChangeNotifier after dispose" errors
 
-**Phase 3 Pending:**
-- [ ] Plan Phase 3 (Overlay Refactor) next
+**Phase 3 In Progress:**
+- [x] 03-01 complete — Overlay foundation infrastructure (4.0 min)
+- [x] OverlayService wrapper with retry logic created
+- [x] OverlayMessage enhanced with timestamp tracking
+- [x] Staleness constants and GPS grace period defined
+- [ ] 03-02 next — Integrate OverlayService and staleness detection
 
 ### Blockers/Concerns
 
@@ -96,11 +106,13 @@ Recent decisions affecting current work:
 - RESOLVED: Zero setState calls for shared state (theme, unit, GPS data, overlay status)
 - INFO: Manual testing needed to verify settings persistence and provider lifecycle
 
-**Phase 3 (Overlay Refactor) — Next:**
-- MEDIUM RISK: flutter_overlay_window 0.5.0 has known communication issues
-- May need testing on multiple Android versions for reliability
-- Overlay status polling alternative needs research (event-based vs 5s polling)
-- Data staleness issue to fix (data stops updating after running for a while)
+**Phase 3 (Overlay Refactor) — In Progress:**
+- RESOLVED: OverlayService foundation complete with retry logic
+- RESOLVED: Timestamp tracking in OverlayMessage for staleness detection
+- RESOLVED: Staleness constants defined (3s dim, 10s dash, 30s GPS grace)
+- MEDIUM RISK: flutter_overlay_window 0.5.0 has known communication issues (mitigated by retry + verification)
+- INFO: Plan 03-02 will integrate OverlayService and implement staleness UI feedback
+- INFO: Manual testing needed after 03-02 to verify overlay reliability improvements
 
 **Phase 4 (GPS Optimization):**
 - Speed thresholds (8/12 km/h) need field testing validation
@@ -108,7 +120,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-10 (Plan 02-02 execution complete)
-Stopped at: Completed 02-02-PLAN.md — Phase 2 complete
+Last session: 2026-02-11 (Plan 03-01 execution complete)
+Stopped at: Completed 03-01-PLAN.md — Phase 3 Plan 1 complete
 Resume file: None
-Next action: Plan Phase 3 (Overlay Refactor)
+Next action: Execute 03-02-PLAN.md (Overlay integration)
