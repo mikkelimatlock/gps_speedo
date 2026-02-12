@@ -23,7 +23,6 @@ class OverlayProvider extends ChangeNotifier {
   StreamSubscription<dynamic>? _overlayMessageSubscription;
   Timer? _overlayStatusCheckTimer;
   Timer? _tapCloseTimer;
-  Timer? _gracePeriodTimer;
 
   // Dependencies — set via update() from ProxyProvider
   GpsDataManager? _gpsManager;
@@ -69,10 +68,6 @@ class OverlayProvider extends ChangeNotifier {
   /// Show the floating overlay window
   Future<void> showOverlay() async {
     if (_isDisposed) return;
-
-    // Cancel grace period if user reopens overlay within grace period
-    _gracePeriodTimer?.cancel();
-    _gracePeriodTimer = null;
 
     try {
       // Check permission before attempting to show overlay
@@ -246,13 +241,6 @@ class OverlayProvider extends ChangeNotifier {
     _stopListeningToOverlayMessages();
     notifyListeners();
 
-    // Start GPS grace period (30s) — infrastructure for Phase 4
-    _gracePeriodTimer?.cancel();
-    _gracePeriodTimer = Timer(TimingConfig.GPS_GRACE_PERIOD, () {
-      Logger.info('GPS grace period expired', 'OverlayProvider');
-      _gracePeriodTimer = null;
-    });
-
     if (shouldBringToFront) {
       _bringAppToFront();
     }
@@ -280,7 +268,6 @@ class OverlayProvider extends ChangeNotifier {
     _overlayMessageSubscription?.cancel();
     _overlayStatusCheckTimer?.cancel();
     _tapCloseTimer?.cancel();
-    _gracePeriodTimer?.cancel();
     Logger.info('OverlayProvider disposed', 'OverlayProvider');
     super.dispose();
   }
