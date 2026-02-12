@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:wakelock_plus/wakelock_plus.dart';
 import '../config/timing_constants.dart';
+import '../config/overlay_constants.dart';
 import '../config/color_themes.dart';
 import '../services/gps_data_manager.dart';
+import '../models/processed_gps_data.dart';
 import '../providers/settings_provider.dart';
 import '../providers/overlay_provider.dart';
 import '../services/logger.dart';
@@ -19,31 +20,33 @@ class SpeedometerScreen extends StatefulWidget {
   State<SpeedometerScreen> createState() => _SpeedometerScreenState();
 }
 
-class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindingObserver {
+class _SpeedometerScreenState extends State<SpeedometerScreen> {
   // Local widget state only (not shared app state)
   String _errorMessage = '';
-  bool _isInBackground = false;
   Timer? _backgroundHeartbeatTimer;
+  Timer? _stalenessCheckTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     // Delay GPS init and error callback setup to after first frame so context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeGpsManager();
       context.read<OverlayProvider>().onError = _handleOverlayError;
+      // Wire overlay provider into GPS manager for lifecycle decisions
+      context.read<GpsDataManager>().setOverlayProvider(context.read<OverlayProvider>());
     });
-    _enableWakelock();
     _ensureOverlayPermission();
     _startBackgroundHeartbeat();
+    _stalenessCheckTimer = Timer.periodic(OverlayConfig.STALENESS_CHECK_INTERVAL, (_) {
+      if (mounted) setState(() {}); // Trigger rebuild to re-evaluate staleness
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _backgroundHeartbeatTimer?.cancel();
-    WakelockPlus.disable();
+    _stalenessCheckTimer?.cancel();
     try {
       context.read<OverlayProvider>().onError = null;
     } catch (e) {
@@ -97,19 +100,6 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     );
   }
 
-  Future<void> _enableWakelock() async {
-    try {
-      await WakelockPlus.enable();
-      final isEnabled = await WakelockPlus.enabled;
-      if (!isEnabled) {
-        Logger.warn('Wake lock not properly enabled, retrying...', 'Main');
-        await WakelockPlus.enable();
-      }
-    } catch (e) {
-      Logger.error('Wake lock failed: $e', 'Main');
-    }
-  }
-
   Future<void> _ensureOverlayPermission() async {
     try {
       // Note: Overlay permission request is handled by OverlayProvider,
@@ -123,62 +113,20 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
     _backgroundHeartbeatTimer = Timer.periodic(TimingConfig.HEARTBEAT_INTERVAL, (timer) {
       if (!mounted) return;
       final overlay = context.read<OverlayProvider>();
-      if (_isInBackground && overlay.isOverlayActive) {
+      if (overlay.isOverlayActive) {
         overlay.pushCurrentData();
       }
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    switch (state) {
-      case AppLifecycleState.paused:
-        if (!_isInBackground) {
-          _isInBackground = true;
-          _handleBackgroundTransition();
-        }
-        break;
-      case AppLifecycleState.resumed:
-        _isInBackground = false;
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        break;
-    }
-  }
-
-  void _handleBackgroundTransition() {
-    _enableWakelock();
-    _requestBatteryOptimizationExemption();
-    if (context.read<OverlayProvider>().isOverlayActive) {
-      context.read<OverlayProvider>().pushCurrentData();
-    }
-  }
-
-  Future<void> _requestBatteryOptimizationExemption() async {
-    try {
-      // Platform-specific implementation would go here
-    } catch (e) {
-      Logger.warn('Battery optimization exemption not available: $e', 'Main');
-    }
-  }
-
-  String _getSpeedDisplayText(double displaySpeed) {
-    // TEMPORARILY disabled for indoor testing - show all speeds
-    // TODO: Re-enable: if (_currentGpsData.speed < 1.0 && (_currentGpsData.heading < 0.0 || _currentGpsData.heading >= 360.0)) return '--';
-    return displaySpeed.toStringAsFixed(1);
-  }
-
-  Widget _buildSpeedDisplay(String speedText, ColorTheme currentTheme, double fontSize) {
+  Widget _buildSpeedDisplay(String speedText, ColorTheme currentTheme, double fontSize, double opacity) {
     if (speedText == '--') {
       return Text(
         speedText,
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w300,
-          color: currentTheme.speedText,
+          color: currentTheme.speedText.withValues(alpha: opacity),
           fontFamily: 'DIN1451Alt',
         ),
       );
@@ -199,7 +147,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: FontWeight.w300,
-            color: currentTheme.speedText,
+            color: currentTheme.speedText.withValues(alpha: opacity),
             fontFamily: 'DIN1451Alt',
           ),
         ),
@@ -208,7 +156,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
           style: TextStyle(
             fontSize: fontSize * 0.5,
             fontWeight: FontWeight.w300,
-            color: currentTheme.speedTextSub,
+            color: currentTheme.speedTextSub.withValues(alpha: opacity),
             fontFamily: 'DIN1451Alt',
           ),
         ),
@@ -268,17 +216,28 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                 else ...[
                   Flexible(
                     flex: 7,
-                    child: Selector<GpsDataManager, double>(
-                      selector: (_, gps) => gps.currentData.speed,
-                      builder: (context, speed, _) {
+                    child: Selector<GpsDataManager, ProcessedGpsData>(
+                      selector: (_, gps) => gps.currentData,
+                      builder: (context, data, _) {
                         final settings = context.read<SettingsProvider>();
-                        final displaySpeed = settings.currentUnit.convert(speed);
-                        final speedText = _getSpeedDisplayText(displaySpeed);
+                        final displaySpeed = settings.currentUnit.convert(data.speed);
+
+                        // Calculate staleness
+                        final age = DateTime.now().difference(data.timestamp);
+                        final isDimmed = age >= OverlayConfig.STALENESS_DIM_THRESHOLD;
+                        final showDashes = age >= OverlayConfig.STALENESS_DASH_THRESHOLD;
+                        final staleOpacity = isDimmed ? OverlayConfig.STALENESS_DIM_OPACITY : 1.0;
+
+                        final speedText = showDashes ? '--' : displaySpeed.toStringAsFixed(1);
+
                         return GestureDetector(
-                          onTap: () => context.read<SettingsProvider>().cycleTheme(),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.read<SettingsProvider>().cycleTheme();
+                          },
                           child: FittedBox(
                             fit: BoxFit.contain,
-                            child: _buildSpeedDisplay(speedText, currentTheme, 200),
+                            child: _buildSpeedDisplay(speedText, currentTheme, 200, staleOpacity),
                           ),
                         );
                       },
@@ -296,7 +255,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                       selector: (_, settings) => settings.currentUnit.label,
                       builder: (context, unitLabel, _) {
                         return GestureDetector(
-                          onTap: () => context.read<SettingsProvider>().cycleUnit(),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.read<SettingsProvider>().cycleUnit();
+                          },
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: Text(
@@ -338,22 +300,27 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               width: double.infinity,
               color: Colors.transparent,
               padding: const EdgeInsets.all(2),
-              child: Selector<GpsDataManager, (double heading, String displayHeading)>(
-                selector: (_, gps) => (gps.currentData.heading, gps.currentData.displayHeading),
+              child: Selector<GpsDataManager, ProcessedGpsData>(
+                selector: (_, gps) => gps.currentData,
                 builder: (context, data, _) {
+                  // Calculate staleness
+                  final age = DateTime.now().difference(data.timestamp);
+                  final isDimmed = age >= OverlayConfig.STALENESS_DIM_THRESHOLD;
+                  final staleOpacity = isDimmed ? OverlayConfig.STALENESS_DIM_OPACITY : 1.0;
+
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Flexible(
                         flex: 3,
                         child: Transform.rotate(
-                          angle: (data.$1 >= 0 && data.$1 < 360) ? (data.$1 * math.pi / 180.0) : 0,
+                          angle: (data.heading >= 0 && data.heading < 360) ? (data.heading * math.pi / 180.0) : 0,
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: Icon(
                               Icons.navigation,
                               size: 80,
-                              color: currentTheme.headingText,
+                              color: currentTheme.headingText.withValues(alpha: staleOpacity),
                             ),
                           ),
                         ),
@@ -363,10 +330,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                         child: FittedBox(
                           fit: BoxFit.contain,
                           child: Text(
-                            data.$2,
+                            data.displayHeading,
                             style: TextStyle(
                               fontSize: 50,
-                              color: currentTheme.headingText,
+                              color: currentTheme.headingText.withValues(alpha: staleOpacity),
                               fontFamily: 'DIN1451Alt',
                             ),
                           ),
@@ -415,17 +382,28 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                   ),
                   Flexible(
                     flex: 20,
-                    child: Selector<GpsDataManager, double>(
-                      selector: (_, gps) => gps.currentData.speed,
-                      builder: (context, speed, _) {
+                    child: Selector<GpsDataManager, ProcessedGpsData>(
+                      selector: (_, gps) => gps.currentData,
+                      builder: (context, data, _) {
                         final settings = context.read<SettingsProvider>();
-                        final displaySpeed = settings.currentUnit.convert(speed);
-                        final speedText = _getSpeedDisplayText(displaySpeed);
+                        final displaySpeed = settings.currentUnit.convert(data.speed);
+
+                        // Calculate staleness
+                        final age = DateTime.now().difference(data.timestamp);
+                        final isDimmed = age >= OverlayConfig.STALENESS_DIM_THRESHOLD;
+                        final showDashes = age >= OverlayConfig.STALENESS_DASH_THRESHOLD;
+                        final staleOpacity = isDimmed ? OverlayConfig.STALENESS_DIM_OPACITY : 1.0;
+
+                        final speedText = showDashes ? '--' : displaySpeed.toStringAsFixed(1);
+
                         return GestureDetector(
-                          onTap: () => context.read<SettingsProvider>().cycleTheme(),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.read<SettingsProvider>().cycleTheme();
+                          },
                           child: FittedBox(
                             fit: BoxFit.contain,
-                            child: _buildSpeedDisplay(speedText, currentTheme, 160),
+                            child: _buildSpeedDisplay(speedText, currentTheme, 160, staleOpacity),
                           ),
                         );
                       },
@@ -437,7 +415,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                       selector: (_, settings) => settings.currentUnit.label,
                       builder: (context, unitLabel, _) {
                         return GestureDetector(
-                          onTap: () => context.read<SettingsProvider>().cycleUnit(),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.read<SettingsProvider>().cycleUnit();
+                          },
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: Text(
@@ -477,22 +458,27 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
               height: double.infinity,
               color: Colors.transparent,
               padding: const EdgeInsets.all(2),
-              child: Selector<GpsDataManager, (double heading, String displayHeading)>(
-                selector: (_, gps) => (gps.currentData.heading, gps.currentData.displayHeading),
+              child: Selector<GpsDataManager, ProcessedGpsData>(
+                selector: (_, gps) => gps.currentData,
                 builder: (context, data, _) {
+                  // Calculate staleness
+                  final age = DateTime.now().difference(data.timestamp);
+                  final isDimmed = age >= OverlayConfig.STALENESS_DIM_THRESHOLD;
+                  final staleOpacity = isDimmed ? OverlayConfig.STALENESS_DIM_OPACITY : 1.0;
+
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Flexible(
                         flex: 3,
                         child: Transform.rotate(
-                          angle: (data.$1 >= 0 && data.$1 < 360) ? (data.$1 * math.pi / 180.0) : 0,
+                          angle: (data.heading >= 0 && data.heading < 360) ? (data.heading * math.pi / 180.0) : 0,
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: Icon(
                               Icons.navigation,
                               size: 60,
-                              color: currentTheme.headingText,
+                              color: currentTheme.headingText.withValues(alpha: staleOpacity),
                             ),
                           ),
                         ),
@@ -502,10 +488,10 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> with WidgetsBindi
                         child: FittedBox(
                           fit: BoxFit.contain,
                           child: Text(
-                            data.$2,
+                            data.displayHeading,
                             style: TextStyle(
                               fontSize: 30,
-                              color: currentTheme.headingText,
+                              color: currentTheme.headingText.withValues(alpha: staleOpacity),
                               fontFamily: 'DIN1451Alt',
                             ),
                           ),
