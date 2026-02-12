@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: 3 of 4 (Overlay Refactor)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-11 — Completed 03-02-PLAN.md
+Phase: 4 of 4 (GPS Power Optimization)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-12 — Completed 04-01-PLAN.md
 
-Progress: [██████░░░░] 60% (Phase 3: 2/2 plans complete)
+Progress: [███████░░░] 70% (Phase 4: 1/2 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 6.3 minutes
-- Total execution time: 0.63 hours
+- Total plans completed: 7
+- Average duration: 6.0 minutes
+- Total execution time: 0.71 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [██████░░░░] 60% (Phase 3: 2/2 plans complete)
 | 1. Foundation | 2 | 19.6 min | 9.8 min |
 | 2. Provider Migration | 2 | 11.5 min | 5.75 min |
 | 3. Overlay Refactor | 2 | 8.25 min | 4.1 min |
+| 4. GPS Optimization | 1 | 4.9 min | 4.9 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (7.7 min), 02-02 (3.8 min), 03-01 (4.0 min), 03-02 (4.25 min)
-- Trend: Consistent sub-5-minute plans in Phase 3
+- Last 5 plans: 02-02 (3.8 min), 03-01 (4.0 min), 03-02 (4.25 min), 04-01 (4.9 min)
+- Trend: Consistent sub-5-minute plans continuing in Phase 4
 
 *Updated after each plan completion*
 
@@ -70,8 +71,12 @@ Recent decisions affecting current work:
 | 03    | 02    | Error callback pattern for provider-to-screen comm    | Implemented    |
 | 03    | 02    | Staleness opacity via withValues(alpha:) no animation | Implemented    |
 | 03    | 02    | GPS grace period timer created (Phase 4 lifecycle)    | Implemented    |
-| 04    | TBD   | Speed-adaptive GPS precision (~10 km/h threshold)     | Pending        |
-| 04    | TBD   | Background GPS only when overlay visible              | Pending        |
+| 04    | 01    | Speed-adaptive GPS precision (8/12 km/h hysteresis)   | Implemented    |
+| 04    | 01    | Precision switching gated until 5s after first fix    | Implemented    |
+| 04    | 01    | Background grace period re-checks overlay at expiry   | Implemented    |
+| 04    | 01    | Wake lock contextual: GPS + (overlay OR foreground)   | Implemented    |
+| 04    | 01    | GPS stop preserves last data for staleness display    | Implemented    |
+| 04    | 01    | BACKGROUND_GRACE_PERIOD (7s) replaces GPS_GRACE_PERIOD| Implemented    |
 
 ### Pending Todos
 
@@ -125,13 +130,20 @@ Recent decisions affecting current work:
 - INFO: Manual testing needed to verify overlay reliability improvements on physical device
 - INFO: All OVRL-01 through OVRL-06 requirements satisfied
 
-**Phase 4 (GPS Optimization):**
-- Speed thresholds (8/12 km/h) need field testing validation
-- Android OEM behavior varies (Samsung, Xiaomi duty-cycling differences)
+**Phase 4 (GPS Optimization) - In Progress:**
+- RESOLVED: Core GPS engine complete with lifecycle awareness and precision switching
+- RESOLVED: ProcessedGpsData timestamp field added for staleness detection
+- RESOLVED: Background grace period (7s) with race condition protection
+- RESOLVED: Conditional wake lock (GPS active + visible)
+- INFO: Plan 04-01 complete (4.9 min) — ready for Plan 04-02 (UI Integration)
+- PENDING: SpeedometerScreen needs gpsDataManager.setOverlayProvider() call
+- PENDING: Background heartbeat (5s) may need adjustment vs 7s grace period
+- FIELD TESTING: Speed thresholds (8/12 km/h) need validation on physical device
+- FIELD TESTING: Android OEM behavior varies (Samsung, Xiaomi duty-cycling differences)
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Plan 03-02 execution complete)
-Stopped at: Completed 03-02-PLAN.md — Phase 3 complete
+Last session: 2026-02-12 (Plan 04-01 execution complete)
+Stopped at: Completed 04-01-PLAN.md — Phase 4 in progress (1/2 plans)
 Resume file: None
-Next action: Begin Phase 4 (GPS Optimization) planning
+Next action: Execute Plan 04-02 (UI Integration)
