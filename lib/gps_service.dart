@@ -6,13 +6,22 @@ import 'config/gps_constants.dart';
 class GpsService {
   static double? _lastValidHeading;
 
-  static Stream<Position> get positionStream {
+  /// Create a position stream with dynamic accuracy setting
+  static Stream<Position> createPositionStream({
+    LocationAccuracy accuracy = LocationAccuracy.high,
+  }) {
     return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
+      locationSettings: LocationSettings(
+        accuracy: accuracy,
         distanceFilter: 0,
       ),
     );
+  }
+
+  /// Deprecated: Use createPositionStream() instead
+  @Deprecated('Use createPositionStream(accuracy: LocationAccuracy.bestForNavigation) instead')
+  static Stream<Position> get positionStream {
+    return createPositionStream(accuracy: LocationAccuracy.bestForNavigation);
   }
 
   static Future<bool> requestPermissions() async {

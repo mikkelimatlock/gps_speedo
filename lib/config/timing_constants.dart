@@ -15,5 +15,9 @@ abstract class TimingConfig {
   static const Duration LONG_PRESS_SIGNAL_DELAY = Duration(milliseconds: 50);
 
   /// GPS grace period - continues for 30s after overlay close when backgrounded
+  /// DEPRECATED: Replaced by BACKGROUND_GRACE_PERIOD (7s) for lifecycle management
   static const Duration GPS_GRACE_PERIOD = Duration(seconds: 30);
+
+  /// Background grace period - time before GPS stops when app backgrounded without overlay
+  static const Duration BACKGROUND_GRACE_PERIOD = Duration(seconds: 7);
 }

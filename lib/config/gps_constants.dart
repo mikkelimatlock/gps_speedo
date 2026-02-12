@@ -19,4 +19,13 @@ abstract class GpsConfig {
 
   /// Speed threshold below which heading is considered unreliable (m/s)
   static const double LOW_SPEED_THRESHOLD = 1.0;
+
+  /// Speed threshold for switching to HIGH precision (m/s) - 12 km/h
+  static const double PRECISION_UP_THRESHOLD_MPS = 3.33;
+
+  /// Speed threshold for switching to BALANCED precision (m/s) - 8 km/h
+  static const double PRECISION_DOWN_THRESHOLD_MPS = 2.22;
+
+  /// Minimum time after first fix before precision switching starts
+  static const Duration PRECISION_SWITCH_FIRST_FIX_DELAY = Duration(seconds: 5);
 }

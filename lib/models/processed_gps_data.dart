@@ -5,6 +5,7 @@ class ProcessedGpsData {
   final String displayHeading;  // Formatted heading text
   final bool isSpeedValid;      // True if from recent GPS
   final bool isHeadingValid;    // True if from recent GPS
+  final DateTime timestamp;     // Timestamp for staleness detection
 
   const ProcessedGpsData({
     required this.speed,
@@ -13,6 +14,7 @@ class ProcessedGpsData {
     required this.displayHeading,
     required this.isSpeedValid,
     required this.isHeadingValid,
+    required this.timestamp,
   });
 
   ProcessedGpsData copyWith({
@@ -22,6 +24,7 @@ class ProcessedGpsData {
     String? displayHeading,
     bool? isSpeedValid,
     bool? isHeadingValid,
+    DateTime? timestamp,
   }) {
     return ProcessedGpsData(
       speed: speed ?? this.speed,
@@ -30,6 +33,7 @@ class ProcessedGpsData {
       displayHeading: displayHeading ?? this.displayHeading,
       isSpeedValid: isSpeedValid ?? this.isSpeedValid,
       isHeadingValid: isHeadingValid ?? this.isHeadingValid,
+      timestamp: timestamp ?? this.timestamp,
     );
   }
 }
