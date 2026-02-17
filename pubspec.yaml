@@ -27,6 +27,15 @@ dependencies:
   # Bring app to foreground from background/overlay
   bg_launcher: ^0.1.0
 
+  # State management
+  provider: ^6.1.2
+
+  # Persistent settings storage
+  shared_preferences: ^2.3.4
+
+  # Retry logic for platform operations
+  retry: ^3.1.2
+
 
 dev_dependencies:
   flutter_test:
